@@ -1,203 +1,245 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const toggleBtn = document.getElementById('toggle-btn');
-    const statusBorder = document.getElementById('status-border');
-    const urlInput = document.getElementById('url-input');
-    const goBtn = document.getElementById('go-btn');
-    const readerView = document.getElementById('manga-reader-view');
-    const infoText = document.getElementById('info-text');
-    const loadingIndicator = document.getElementById('loading');
+    const calendarGrid = document.getElementById('calendar-grid');
+    const monthLabel = document.getElementById('current-month-label');
+    const prevMonthBtn = document.getElementById('prev-month');
+    const nextMonthBtn = document.getElementById('next-month');
+    const hourlyRateInput = document.getElementById('hourly-rate');
+    const totalMoneyEl = document.getElementById('total-money');
+    
+    const bulkActionBar = document.getElementById('bulk-action-bar');
+    const selectedCountEl = document.getElementById('selected-count');
+    const bulkHoursInput = document.getElementById('bulk-hours');
+    const applyBulkBtn = document.getElementById('apply-bulk');
+    const cancelBulkBtn = document.getElementById('cancel-bulk');
 
-    let isActive = false;
-    let observer = null;
+    let currentDate = new Date();
+    let selectedDays = new Set();
+    
+    // Inicjalizacja danych z localStorage
+    let workData = JSON.parse(localStorage.getItem('workCalendarData')) || {};
+    let hourlyRate = parseFloat(localStorage.getItem('hourlyRate')) || 30;
+    hourlyRateInput.value = hourlyRate;
 
-    // Inicjalizacja Intersection Observer do śledzenia widocznych stron
-    function setupObserver() {
-        if (observer) observer.disconnect();
-        
-        observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && isActive) {
-                    const wrapper = entry.target;
-                    // Jeśli nie było jeszcze tłumaczone
-                    if (!wrapper.dataset.translated && !wrapper.dataset.translating) {
-                        translatePage(wrapper);
-                    }
-                }
-            });
-        }, { threshold: 0.1 });
-        
-        const wrappers = document.querySelectorAll('.page-wrapper');
-        wrappers.forEach(w => observer.observe(w));
+    const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", 
+                        "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+
+    function saveData() {
+        localStorage.setItem('workCalendarData', JSON.stringify(workData));
+        localStorage.setItem('hourlyRate', hourlyRate);
+        calculateTotal();
     }
 
-    // Obsługa przycisku Start/Stop
-    toggleBtn.addEventListener('click', () => {
-        isActive = !isActive;
-        if (isActive) {
-            toggleBtn.textContent = '■ Stop';
-            toggleBtn.classList.remove('start');
-            toggleBtn.classList.add('stop');
-            statusBorder.classList.remove('inactive');
-            statusBorder.classList.add('active');
-            
-            // Wymuś sprawdzenie widocznych stron po włączeniu
-            const wrappers = document.querySelectorAll('.page-wrapper');
-            wrappers.forEach(w => {
-                const rect = w.getBoundingClientRect();
-                if (rect.top < window.innerHeight && rect.bottom > 0) {
-                    if (!w.dataset.translated && !w.dataset.translating) {
-                        translatePage(w);
-                    }
-                }
-            });
+    function getMonthKey(year, month) {
+        return `${year}-${month.toString().padStart(2, '0')}`;
+    }
 
-        } else {
-            toggleBtn.textContent = '▶ Start';
-            toggleBtn.classList.remove('stop');
-            toggleBtn.classList.add('start');
-            statusBorder.classList.remove('active');
-            statusBorder.classList.add('inactive');
-            
-            // Opcjonalnie: można ukryć tłumaczenia
-            // document.querySelectorAll('.overlays-container').forEach(c => c.innerHTML = '');
-            // document.querySelectorAll('.page-wrapper').forEach(w => w.dataset.translated = '');
+    function renderCalendar() {
+        calendarGrid.innerHTML = '';
+        selectedDays.clear();
+        updateBulkBar();
+        
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        monthLabel.textContent = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        // Dostosowanie do poniedziałku jako pierwszego dnia (0 = niedziela, 1 = pon)
+        let emptyDays = firstDay === 0 ? 6 : firstDay - 1;
+
+        const monthKey = getMonthKey(year, month);
+        if (!workData[monthKey]) {
+            workData[monthKey] = {};
         }
-    });
 
-    // Ładowanie adresu URL (Strony WWW)
-    goBtn.addEventListener('click', async () => {
-        const url = urlInput.value.trim();
-        if (!url) return;
+        // Puste komórki
+        for (let i = 0; i < emptyDays; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'day-cell empty';
+            calendarGrid.appendChild(emptyCell);
+        }
 
-        infoText.style.display = 'none';
-        readerView.innerHTML = '';
-        loadingIndicator.style.display = 'block';
-        loadingIndicator.textContent = 'Pobieranie strony...';
+        // Dni kalendarza
+        for (let day = 1; day <= daysInMonth; day++) {
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            cell.dataset.day = day;
+            
+            const data = workData[monthKey][day] || { hours: '', worked: false };
+            
+            if (data.worked) cell.classList.add('worked');
 
-        try {
-            // Używamy corsproxy, aby pobrać HTML strony (omijając CORS)
-            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-            const response = await fetch(proxyUrl);
-            const htmlString = await response.text();
+            cell.innerHTML = `
+                <div class="day-header">
+                    <span>${day}</span>
+                </div>
+                <input type="number" class="hours-input" placeholder="0 h" value="${data.hours}" min="0" step="0.5">
+                <button class="worked-btn">${data.worked ? '✓ Gotowe' : 'Oznacz'}</button>
+            `;
 
-            // Parsowanie HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlString, 'text/html');
-
-            // Szukanie obrazków (szukamy img, a także popularnych atrybutów lazy loading)
-            const images = doc.querySelectorAll('img');
-            const imageUrls = [];
-
-            images.forEach(img => {
-                let src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('src');
-                if (src && !src.startsWith('data:image')) { // Ignoruj małe inline base64 (często ikony)
-                    // Napraw względne URL-e
-                    if (src.startsWith('//')) {
-                        src = 'https:' + src;
-                    } else if (src.startsWith('/')) {
-                        const urlObj = new URL(url);
-                        src = urlObj.origin + src;
-                    } else if (!src.startsWith('http')) {
-                        const urlObj = new URL(url);
-                        src = urlObj.origin + '/' + src;
-                    }
-                    imageUrls.push(src);
+            // Obsługa kliknięcia (zaznaczanie)
+            cell.addEventListener('click', (e) => {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                    toggleDaySelection(cell, day);
                 }
             });
 
-            // Filtrowanie - często obrazki mangi to te największe lub w serii, ale w prostym PWA wyświetlimy po prostu wszystkie większe obrazki, użytkownik sam przeskroluje.
-            // Generowanie DOM dla obrazków
-            imageUrls.forEach(src => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'page-wrapper';
+            // Obsługa zmiany godzin
+            const input = cell.querySelector('.hours-input');
+            input.addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
+                workData[monthKey][day].hours = val;
+                saveData();
+            });
 
-                const img = document.createElement('img');
-                img.className = 'manga-page';
-                img.crossOrigin = 'anonymous'; // Ważne dla Tesseract.js (dostęp do canvas)
+            // Obsługa przycisku "Gotowe"
+            const btn = cell.querySelector('.worked-btn');
+            btn.addEventListener('click', () => {
+                if (!workData[monthKey][day]) workData[monthKey][day] = { hours: input.value, worked: false };
+                workData[monthKey][day].worked = !workData[monthKey][day].worked;
                 
-                // Przepuszczamy obrazki również przez proxy, jeśli docelowy serwer blokuje hotlinking
-                img.src = 'https://corsproxy.io/?' + encodeURIComponent(src);
-
-                const overlays = document.createElement('div');
-                overlays.className = 'overlays-container';
-
-                wrapper.appendChild(img);
-                wrapper.appendChild(overlays);
-                readerView.appendChild(wrapper);
+                if (workData[monthKey][day].worked) {
+                    cell.classList.add('worked');
+                    btn.textContent = '✓ Gotowe';
+                } else {
+                    cell.classList.remove('worked');
+                    btn.textContent = 'Oznacz';
+                }
+                saveData();
             });
 
-            setupObserver();
+            calendarGrid.appendChild(cell);
+        }
 
-        } catch (error) {
-            console.error('Błąd pobierania strony:', error);
-            alert('Nie udało się pobrać strony. Spróbuj innego linku lub odśwież.');
-        } finally {
-            loadingIndicator.style.display = 'none';
+        calculateTotal();
+    }
+
+    function toggleDaySelection(cell, day) {
+        if (selectedDays.has(day)) {
+            selectedDays.delete(day);
+            cell.classList.remove('selected');
+        } else {
+            selectedDays.add(day);
+            cell.classList.add('selected');
+        }
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        if (selectedDays.size > 0) {
+            bulkActionBar.classList.add('visible');
+            selectedCountEl.textContent = `Zaznaczono: ${selectedDays.size} dni`;
+        } else {
+            bulkActionBar.classList.remove('visible');
+        }
+    }
+
+    function calculateTotal() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const monthKey = getMonthKey(year, month);
+        
+        let totalHours = 0;
+        const monthData = workData[monthKey] || {};
+        
+        for (const day in monthData) {
+            if (monthData[day].worked && monthData[day].hours) {
+                totalHours += parseFloat(monthData[day].hours);
+            }
+        }
+        
+        const total = totalHours * hourlyRate;
+        totalMoneyEl.textContent = total.toFixed(2);
+    }
+
+    // Eventy nawigacji i ustawień
+    prevMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    hourlyRateInput.addEventListener('input', (e) => {
+        hourlyRate = parseFloat(e.target.value) || 0;
+        saveData();
+    });
+
+    // Eventy paska masowej edycji
+    applyBulkBtn.addEventListener('click', () => {
+        const val = bulkHoursInput.value;
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const monthKey = getMonthKey(year, month);
+
+        selectedDays.forEach(day => {
+            if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
+            workData[monthKey][day].hours = val;
+            
+            // Aktualizacja widoku
+            const cell = document.querySelector(`.day-cell[data-day="${day}"]`);
+            if (cell) {
+                cell.querySelector('.hours-input').value = val;
+                cell.classList.remove('selected');
+            }
+        });
+        
+        selectedDays.clear();
+        bulkHoursInput.value = '';
+        updateBulkBar();
+        saveData();
+    });
+
+    cancelBulkBtn.addEventListener('click', () => {
+        document.querySelectorAll('.day-cell.selected').forEach(cell => cell.classList.remove('selected'));
+        selectedDays.clear();
+        updateBulkBar();
+    });
+
+    // PWA - Logika Instalacji i Service Worker
+    const installBtn = document.getElementById('install-btn');
+    let deferredPrompt;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Zapobiegaj domyślnemu wyświetlaniu mini-infobara (na starszych przeglądarkach)
+        e.preventDefault();
+        // Zapisz zdarzenie, aby móc je wywołać po kliknięciu
+        deferredPrompt = e;
+        // Pokaż przycisk instalacji
+        installBtn.classList.remove('hidden');
+    });
+
+    installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            // Wyświetl właściwy prompt instalacji PWA
+            deferredPrompt.prompt();
+            // Czekaj na wybór użytkownika
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            // Ukryj przycisk po obsłużeniu
+            deferredPrompt = null;
+            installBtn.classList.add('hidden');
         }
     });
 
-    async function translatePage(wrapper) {
-        wrapper.dataset.translating = "true";
-        const img = wrapper.querySelector('img');
-        const overlaysContainer = wrapper.querySelector('.overlays-container');
-        
-        loadingIndicator.style.display = 'block';
-        loadingIndicator.textContent = 'Przetwarzanie OCR...';
+    window.addEventListener('appinstalled', () => {
+        console.log('Aplikacja została pomyślnie zainstalowana');
+        installBtn.classList.add('hidden');
+    });
 
-        try {
-            // Tesseract.js
-            const result = await Tesseract.recognize(
-                img,
-                'eng', // Język domyślny, docelowo można dodać wybór
-                { logger: m => console.log(m) }
-            );
-
-            const blocks = result.data.blocks || [];
-            
-            for (const block of blocks) {
-                if (block.text.trim().length < 2) continue;
-
-                // Tłumaczenie
-                const translatedText = await fetchTranslation(block.text);
-
-                // Skalowanie pozycji z oryginału na aktualny wymiar obrazka na ekranie
-                const scaleX = img.clientWidth / img.naturalWidth;
-                const scaleY = img.clientHeight / img.naturalHeight;
-
-                const { x0, y0, x1, y1 } = block.bbox;
-                const left = x0 * scaleX;
-                const top = y0 * scaleY;
-                const width = (x1 - x0) * scaleX;
-                const height = (y1 - y0) * scaleY;
-
-                const div = document.createElement('div');
-                div.className = 'text-overlay';
-                div.style.left = `${left}px`;
-                div.style.top = `${top}px`;
-                div.style.width = `${width}px`;
-                div.style.height = `${height}px`;
-                div.textContent = translatedText;
-                overlaysContainer.appendChild(div);
-            }
-            
-            wrapper.dataset.translated = "true";
-
-        } catch (error) {
-            console.error('Błąd OCR dla strony:', error);
-        } finally {
-            delete wrapper.dataset.translating;
-            loadingIndicator.style.display = 'none';
-        }
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker zarejestrowany', reg))
+                .catch(err => console.error('Błąd rejestracji SW:', err));
+        });
     }
 
-    async function fetchTranslation(text) {
-        try {
-            const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|pl`);
-            const data = await res.json();
-            return data.responseData.translatedText;
-        } catch (e) {
-            console.error('Błąd tłumaczenia:', e);
-            return text;
-        }
-    }
+    // Initial render
+    renderCalendar();
 });

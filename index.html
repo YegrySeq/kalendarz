@@ -3,36 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Manga Translator</title>
+    <title>Kalendarz Pracy</title>
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#007bff">
+    <link rel="apple-touch-icon" href="icon.svg">
     <link rel="stylesheet" href="style.css">
-    <!-- Tesseract.js do OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
-    <div id="app-container">
-        <!-- Ramka sygnalizująca działanie (żółta) -->
-        <div id="status-border" class="inactive"></div>
-
-        <!-- Ukryty przycisk Start/Stop -->
-        <button id="toggle-btn" class="app-btn start">▶ Start</button>
-
-        <!-- Pasek adresu -->
-        <div id="address-bar">
-            <input type="url" id="url-input" placeholder="Wklej link do rozdziału mangi (URL)..." />
-            <button id="go-btn" class="app-btn">Ładuj</button>
+    <header class="app-header">
+        <button id="install-btn" class="hidden" style="width: 100%; margin-bottom: 10px; background: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 Zainstaluj Aplikację</button>
+        <div class="month-selector">
+            <button id="prev-month">&lt;</button>
+            <h2 id="current-month-label">Wrzesień 2026</h2>
+            <button id="next-month">&gt;</button>
         </div>
-
-        <!-- Kontener na mangę -->
-        <div id="manga-container">
-            <p id="info-text">Wklej link do strony z mangą, abyśmy wyciągnęli z niej obrazki. Tłumaczenie będzie działać na bieżąco podczas przewijania.</p>
-            <div id="manga-reader-view">
-                <!-- Tutaj będą generowane obrazki -->
+        <div class="stats-bar">
+            <div class="rate-input">
+                <label for="hourly-rate">Stawka/h:</label>
+                <input type="number" id="hourly-rate" value="30" min="0" step="1">
+                <span>zł</span>
+            </div>
+            <div class="total-earnings">
+                Wypłata: <strong id="total-money">0</strong> zł
             </div>
         </div>
-        
-        <!-- Wskaźnik ładowania -->
-        <div id="loading" style="display:none;">Przetwarzanie...</div>
+    </header>
+
+    <main class="calendar-container">
+        <div class="weekdays">
+            <div>Pon</div><div>Wto</div><div>Śro</div><div>Czw</div><div>Pią</div><div>Sob</div><div>Nie</div>
+        </div>
+        <div id="calendar-grid" class="calendar-grid">
+            <!-- Dni kalendarza generowane przez JS -->
+        </div>
+    </main>
+
+    <!-- Floating Action Bar do wielokrotnego zaznaczania -->
+    <div id="bulk-action-bar" class="hidden">
+        <span id="selected-count">Zaznaczono: 0 dni</span>
+        <div class="bulk-inputs">
+            <input type="number" id="bulk-hours" placeholder="Godziny..." min="0" max="24" step="0.5">
+            <button id="apply-bulk">Zapisz</button>
+            <button id="cancel-bulk" class="cancel-btn">Anuluj</button>
+        </div>
     </div>
 
     <script src="app.js"></script>
