@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const total = totalHours * hourlyRate;
-        totalMoneyEl.textContent = total.toFixed(2);
+        totalMoneyEl.textContent = total.toFixed(2) + ' zł';
     }
 
     // Eventy nawigacji i ustawień
@@ -170,8 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
         saveData();
     });
 
-    // Eventy paska masowej edycji
-    applyBulkBtn.addEventListener('click', () => {
+    const applyBulkDoneBtn = document.getElementById('apply-bulk-done');
+    const presetBtns = document.querySelectorAll('.preset-btn');
+
+    presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            bulkHoursInput.value = e.target.dataset.val;
+        });
+    });
+
+    function applyBulkAction(markAsWorked = false) {
         const val = bulkHoursInput.value;
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -179,12 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         selectedDays.forEach(day => {
             if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
-            workData[monthKey][day].hours = val;
+            if (val !== '') workData[monthKey][day].hours = val;
+            if (markAsWorked) workData[monthKey][day].worked = true;
             
-            // Aktualizacja widoku
+            // Aktualizacja widoku bez pełnego renderCalendar by było szybciej
             const cell = document.querySelector(`.day-cell[data-day="${day}"]`);
             if (cell) {
-                cell.querySelector('.hours-input').value = val;
+                if (val !== '') cell.querySelector('.hours-input').value = val;
+                if (markAsWorked) {
+                    cell.classList.add('worked');
+                    cell.querySelector('.worked-btn').textContent = '✓ Gotowe';
+                }
                 cell.classList.remove('selected');
             }
         });
@@ -193,7 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkHoursInput.value = '';
         updateBulkBar();
         saveData();
-    });
+    }
+
+    applyBulkBtn.addEventListener('click', () => applyBulkAction(false));
+    applyBulkDoneBtn.addEventListener('click', () => applyBulkAction(true));
 
     cancelBulkBtn.addEventListener('click', () => {
         document.querySelectorAll('.day-cell.selected').forEach(cell => cell.classList.remove('selected'));

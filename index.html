@@ -10,15 +10,16 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="app-header">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <button id="install-btn" class="hidden" style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px;">📲 Instaluj</button>
-            <div style="display: flex; gap: 5px; margin-left: auto;">
-                <button id="export-btn" style="background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">💾 Zapisz (Eksport)</button>
-                <label for="import-file" style="background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">📂 Wgraj (Import)</label>
-                <input type="file" id="import-file" accept=".json" style="display: none;">
-            </div>
+    <div class="top-actions">
+        <button id="install-btn" class="hidden">📲 Instaluj</button>
+        <div style="display: flex; gap: 10px; margin-left: auto;">
+            <button id="export-btn">💾 Zapisz</button>
+            <label for="import-file">📂 Wgraj</label>
+            <input type="file" id="import-file" accept=".json" style="display: none;">
         </div>
+    </div>
+    
+    <header class="app-header">
         <div class="month-selector">
             <button id="prev-month">&lt;</button>
             <h2 id="current-month-label">Wrzesień 2026</h2>
@@ -27,11 +28,14 @@
         <div class="stats-bar">
             <div class="rate-input">
                 <label for="hourly-rate">Stawka/h:</label>
-                <input type="number" id="hourly-rate" value="30" min="0" step="1">
-                <span>zł</span>
+                <div>
+                    <input type="number" id="hourly-rate" value="30" min="0" step="1">
+                    <span>zł</span>
+                </div>
             </div>
             <div class="total-earnings">
-                Wypłata: <strong id="total-money">0</strong> zł
+                Przewidywana wypłata
+                <strong id="total-money">0 zł</strong>
             </div>
         </div>
     </header>
@@ -48,9 +52,19 @@
     <!-- Floating Action Bar do wielokrotnego zaznaczania -->
     <div id="bulk-action-bar" class="hidden">
         <span id="selected-count">Zaznaczono: 0 dni</span>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 10px; width: 100%; justify-content: center;">
+            <button class="preset-btn" data-val="8">8h</button>
+            <button class="preset-btn" data-val="10">10h</button>
+            <button class="preset-btn" data-val="12">12h</button>
+        </div>
+
         <div class="bulk-inputs">
-            <input type="number" id="bulk-hours" placeholder="Godziny..." min="0" max="24" step="0.5">
-            <button id="apply-bulk">Zapisz</button>
+            <input type="number" id="bulk-hours" placeholder="Inna..." min="0" max="24" step="0.5">
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <button id="apply-bulk">Wpisz</button>
+                <button id="apply-bulk-done" style="background: var(--success-gradient);">+ Oznacz ✓</button>
+            </div>
             <button id="cancel-bulk" class="cancel-btn">Anuluj</button>
         </div>
     </div>
