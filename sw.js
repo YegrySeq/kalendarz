@@ -1,4 +1,4 @@
-const CACHE_NAME = 'work-calendar-v1';
+const CACHE_NAME = 'work-calendar-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -9,11 +9,28 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(ASSETS);
         })
     );
+});
+
+// Czyszczenie starych wersji cache
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+    return self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
