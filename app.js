@@ -152,6 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const total = totalHours * hourlyRate;
         totalMoneyEl.textContent = total.toFixed(2) + ' zł';
+        
+        const totalHoursLabel = document.getElementById('total-hours-label');
+        if (totalHoursLabel) {
+            totalHoursLabel.textContent = `(${totalHours}h)`;
+        }
     }
 
     // Eventy nawigacji i ustawień
