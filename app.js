@@ -12,6 +12,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyBulkBtn = document.getElementById('apply-bulk');
     const cancelBulkBtn = document.getElementById('cancel-bulk');
 
+    const monthHeaderTop = document.getElementById('month-header-top');
+    const monthHeaderStats = document.getElementById('month-header-stats');
+    const mainCalendarView = document.getElementById('main-calendar-view');
+    const yearViewContainer = document.getElementById('year-view-container');
+    const toggleViewBtn = document.getElementById('toggle-view-btn');
+    
+    const yearLabel = document.getElementById('current-year-label');
+    const prevYearBtn = document.getElementById('prev-year');
+    const nextYearBtn = document.getElementById('next-year');
+    const yearGrid = document.getElementById('year-grid');
+    const yearTotalMoneyEl = document.getElementById('year-total-money');
+    const yearTotalHoursEl = document.getElementById('year-total-hours');
+
+    // Notatki
+    const noteDaySelect = document.getElementById('note-day-select');
+    const noteTextInput = document.getElementById('note-text');
+    const addNoteBtn = document.getElementById('add-note-btn');
+    const notesList = document.getElementById('notes-list');
+
+    let currentYearView = new Date().getFullYear();
+    let isYearView = false;
     let currentDate = new Date();
     let selectedDays = new Set();
     
@@ -60,27 +81,39 @@ document.addEventListener('DOMContentLoaded', () => {
             calendarGrid.appendChild(emptyCell);
         }
 
+        const today = new Date();
+        const isCurrentMonth = (today.getFullYear() === year && today.getMonth() === month);
+
         // Dni kalendarza
         for (let day = 1; day <= daysInMonth; day++) {
             const cell = document.createElement('div');
             cell.className = 'day-cell';
             cell.dataset.day = day;
             
+            const currentDateLoop = new Date(year, month, day);
+            const dayOfWeek = currentDateLoop.getDay();
+            
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                cell.classList.add('weekend');
+            }
+            
+            if (isCurrentMonth && today.getDate() === day) {
+                cell.classList.add('today');
+            }
+            
             const data = workData[monthKey][day] || { hours: '', worked: false };
             
             if (data.worked) cell.classList.add('worked');
+            else if (data.hours && data.hours > 0) cell.classList.add('has-hours');
 
             cell.innerHTML = `
-                <div class="day-header">
-                    <span>${day}</span>
-                </div>
-                <input type="number" class="hours-input" placeholder="0 h" value="${data.hours}" min="0" step="0.5">
-                <button class="worked-btn">${data.worked ? '✓ Gotowe' : 'Oznacz'}</button>
+                <div class="day-header">${day}</div>
+                <input type="number" class="hours-input" placeholder="-" value="${data.hours}" min="0" step="0.5">
             `;
 
-            // Obsługa kliknięcia (zaznaczanie)
+            // Obsługa kliknięcia (zaznaczanie) - ignorujemy kliknięcie w input
             cell.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                if (e.target.tagName !== 'INPUT') {
                     toggleDaySelection(cell, day);
                 }
             });
@@ -91,26 +124,64 @@ document.addEventListener('DOMContentLoaded', () => {
                 const val = e.target.value;
                 if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
                 workData[monthKey][day].hours = val;
-                saveData();
-            });
-
-            // Obsługa przycisku "Gotowe"
-            const btn = cell.querySelector('.worked-btn');
-            btn.addEventListener('click', () => {
-                if (!workData[monthKey][day]) workData[monthKey][day] = { hours: input.value, worked: false };
-                workData[monthKey][day].worked = !workData[monthKey][day].worked;
                 
-                if (workData[monthKey][day].worked) {
-                    cell.classList.add('worked');
-                    btn.textContent = '✓ Gotowe';
-                } else {
-                    cell.classList.remove('worked');
-                    btn.textContent = 'Oznacz';
+                // Automatyczna zmiana koloru przy wpisywaniu
+                if (!workData[monthKey][day].worked) {
+                    if (val && val > 0) cell.classList.add('has-hours');
+                    else cell.classList.remove('has-hours');
                 }
+                
                 saveData();
             });
 
             calendarGrid.appendChild(cell);
+        }
+
+        // Renderowanie list dropdown notatek i samej listy notatek
+        noteDaySelect.innerHTML = '';
+        notesList.innerHTML = '';
+
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            // Opcja do wyboru w dropdownie
+            const opt = document.createElement('option');
+            opt.value = day;
+            opt.textContent = `${day} ${monthNames[month]}`;
+            if (day === today.getDate() && isCurrentMonth) opt.selected = true;
+            noteDaySelect.appendChild(opt);
+
+            // Wyświetlanie notatki, jeśli istnieje
+            const data = workData[monthKey][day];
+            if (data && data.note) {
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'note-item';
+                
+                // Priorytety na podstawie daty dzisiejszej/jutrzejszej
+                if (isCurrentMonth && day === today.getDate()) {
+                    noteDiv.classList.add('note-today');
+                } else if (today.getFullYear() === year && today.getMonth() === month && day === tomorrow.getDate()) {
+                    noteDiv.classList.add('note-tomorrow');
+                } else if (tomorrow.getMonth() !== today.getMonth() && today.getFullYear() === year && month === tomorrow.getMonth() && day === tomorrow.getDate()) {
+                    // Jeśli jutro jest w następnym miesiącu i aktualnie patrzymy na następny miesiąc
+                    noteDiv.classList.add('note-tomorrow');
+                }
+
+                noteDiv.innerHTML = `
+                    <div><strong>${day} ${monthNames[month]}:</strong> ${data.note}</div>
+                    <button class="delete-note" data-day="${day}">✕</button>
+                `;
+                
+                noteDiv.querySelector('.delete-note').addEventListener('click', (e) => {
+                    const d = e.target.dataset.day;
+                    workData[monthKey][d].note = '';
+                    saveData();
+                    renderCalendar();
+                });
+                
+                notesList.appendChild(noteDiv);
+            }
         }
 
         calculateTotal();
@@ -175,6 +246,26 @@ document.addEventListener('DOMContentLoaded', () => {
         saveData();
     });
 
+    // Event notatek
+    addNoteBtn.addEventListener('click', () => {
+        const day = noteDaySelect.value;
+        const text = noteTextInput.value.trim();
+        if (text === '') return;
+
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const monthKey = getMonthKey(year, month);
+
+        if (!workData[monthKey][day]) {
+            workData[monthKey][day] = { hours: '', worked: false };
+        }
+        workData[monthKey][day].note = text;
+        
+        noteTextInput.value = '';
+        saveData();
+        renderCalendar();
+    });
+
     const applyBulkDoneBtn = document.getElementById('apply-bulk-done');
     const presetBtns = document.querySelectorAll('.preset-btn');
 
@@ -198,10 +289,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // Aktualizacja widoku bez pełnego renderCalendar by było szybciej
             const cell = document.querySelector(`.day-cell[data-day="${day}"]`);
             if (cell) {
-                if (val !== '') cell.querySelector('.hours-input').value = val;
+                if (val !== '') {
+                    cell.querySelector('.hours-input').value = val;
+                    if (val > 0) cell.classList.add('has-hours');
+                    else cell.classList.remove('has-hours');
+                }
                 if (markAsWorked) {
                     cell.classList.add('worked');
-                    cell.querySelector('.worked-btn').textContent = '✓ Gotowe';
+                    cell.classList.remove('has-hours');
                 }
                 cell.classList.remove('selected');
             }
@@ -261,52 +356,91 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Eksport i Import Danych (Backup)
-    const exportBtn = document.getElementById('export-btn');
-    const importFileInput = document.getElementById('import-file');
+    // --- Widok Roku ---
+    function renderYearView() {
+        yearGrid.innerHTML = '';
+        yearLabel.textContent = currentYearView;
+        let totalYearHours = 0;
 
-    exportBtn.addEventListener('click', () => {
-        const dataToExport = {
-            workData: workData,
-            hourlyRate: hourlyRate
-        };
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "kalendarz_pracy_backup.json");
-        document.body.appendChild(downloadAnchorNode); // dla Firefox
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    });
+        for (let m = 0; m < 12; m++) {
+            const monthKey = getMonthKey(currentYearView, m);
+            const monthData = workData[monthKey] || {};
+            let monthHours = 0;
 
-    importFileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const importedData = JSON.parse(event.target.result);
-                if (importedData && importedData.workData) {
-                    workData = importedData.workData;
-                    if (importedData.hourlyRate) hourlyRate = importedData.hourlyRate;
-                    
-                    hourlyRateInput.value = hourlyRate;
-                    saveData();
-                    renderCalendar();
-                    alert("Dane zostały pomyślnie wgrane!");
-                } else {
-                    alert("Plik nie zawiera poprawnych danych kalendarza.");
+            for (const day in monthData) {
+                if (monthData[day].worked && monthData[day].hours) {
+                    monthHours += parseFloat(monthData[day].hours);
                 }
-            } catch (err) {
-                console.error(err);
-                alert("Błąd podczas czytania pliku.");
             }
-        };
-        reader.readAsText(file);
-        // Resetowanie inputa
-        importFileInput.value = "";
+
+            totalYearHours += monthHours;
+            const monthMoney = (monthHours * hourlyRate).toFixed(2);
+
+            const card = document.createElement('div');
+            card.className = 'month-card';
+            card.innerHTML = `
+                <h3>${monthNames[m]}</h3>
+                <div class="month-hours">${monthHours}h</div>
+                <div class="month-money">${monthMoney} zł</div>
+            `;
+            
+            // Po kliknięciu w miesiąc przejdź do widoku miesiąca
+            card.addEventListener('click', () => {
+                currentDate.setFullYear(currentYearView);
+                currentDate.setMonth(m);
+                toggleView(false);
+            });
+
+            yearGrid.appendChild(card);
+        }
+
+        yearTotalHoursEl.textContent = `(${totalYearHours}h)`;
+        yearTotalMoneyEl.textContent = (totalYearHours * hourlyRate).toFixed(2) + ' zł';
+    }
+
+    function toggleView(forceYear = null) {
+        if (forceYear !== null) {
+            isYearView = forceYear;
+        } else {
+            isYearView = !isYearView;
+        }
+
+        if (isYearView) {
+            currentYearView = currentDate.getFullYear();
+            renderYearView();
+            monthHeaderTop.classList.add('hidden');
+            monthHeaderStats.classList.add('hidden');
+            mainCalendarView.classList.add('hidden');
+            yearViewContainer.classList.remove('hidden');
+            toggleViewBtn.textContent = '📅 Wróć do miesiąca';
+        } else {
+            renderCalendar();
+            monthHeaderTop.classList.remove('hidden');
+            monthHeaderStats.classList.remove('hidden');
+            mainCalendarView.classList.remove('hidden');
+            yearViewContainer.classList.add('hidden');
+            toggleViewBtn.textContent = '📅 Widok Roku';
+        }
+    }
+
+    toggleViewBtn.addEventListener('click', () => toggleView());
+
+    prevYearBtn.addEventListener('click', () => {
+        currentYearView--;
+        renderYearView();
     });
+
+    nextYearBtn.addEventListener('click', () => {
+        currentYearView++;
+        renderYearView();
+    });
+
+    // W saveData dodaj odświeżanie widoku rocznego, jeśli jest aktywny
+    const originalSaveData = saveData;
+    saveData = function() {
+        originalSaveData();
+        if (isYearView) renderYearView();
+    }
 
     // Initial render
     renderCalendar();
