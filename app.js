@@ -3,15 +3,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusBorder = document.getElementById('status-border');
     const urlInput = document.getElementById('url-input');
     const goBtn = document.getElementById('go-btn');
-    const mangaImage = document.getElementById('manga-image');
+    const readerView = document.getElementById('manga-reader-view');
     const infoText = document.getElementById('info-text');
-    const overlaysContainer = document.getElementById('overlays');
     const loadingIndicator = document.getElementById('loading');
 
     let isActive = false;
+    let observer = null;
+
+    // Inicjalizacja Intersection Observer do śledzenia widocznych stron
+    function setupObserver() {
+        if (observer) observer.disconnect();
+        
+        observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && isActive) {
+                    const wrapper = entry.target;
+                    // Jeśli nie było jeszcze tłumaczone
+                    if (!wrapper.dataset.translated && !wrapper.dataset.translating) {
+                        translatePage(wrapper);
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        const wrappers = document.querySelectorAll('.page-wrapper');
+        wrappers.forEach(w => observer.observe(w));
+    }
 
     // Obsługa przycisku Start/Stop
-    toggleBtn.addEventListener('click', async () => {
+    toggleBtn.addEventListener('click', () => {
         isActive = !isActive;
         if (isActive) {
             toggleBtn.textContent = '■ Stop';
@@ -20,63 +40,129 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBorder.classList.remove('inactive');
             statusBorder.classList.add('active');
             
-            // Jeśli mamy już załadowany obraz, przetłumacz go
-            if (mangaImage.src && mangaImage.src !== window.location.href) {
-                await translateImage();
-            }
+            // Wymuś sprawdzenie widocznych stron po włączeniu
+            const wrappers = document.querySelectorAll('.page-wrapper');
+            wrappers.forEach(w => {
+                const rect = w.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                    if (!w.dataset.translated && !w.dataset.translating) {
+                        translatePage(w);
+                    }
+                }
+            });
+
         } else {
             toggleBtn.textContent = '▶ Start';
             toggleBtn.classList.remove('stop');
             toggleBtn.classList.add('start');
             statusBorder.classList.remove('active');
             statusBorder.classList.add('inactive');
-            overlaysContainer.innerHTML = ''; // Usuń tłumaczenia
+            
+            // Opcjonalnie: można ukryć tłumaczenia
+            // document.querySelectorAll('.overlays-container').forEach(c => c.innerHTML = '');
+            // document.querySelectorAll('.page-wrapper').forEach(w => w.dataset.translated = '');
         }
     });
 
-    // Ładowanie obrazka
-    goBtn.addEventListener('click', () => {
+    // Ładowanie adresu URL (Strony WWW)
+    goBtn.addEventListener('click', async () => {
         const url = urlInput.value.trim();
-        if (url) {
-            // Używamy corsproxy, aby obejść blokady CORS dla obrazków
-            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-            mangaImage.src = proxyUrl;
-            mangaImage.style.display = 'block';
-            infoText.style.display = 'none';
-            overlaysContainer.innerHTML = ''; // czyszczenie nakładek
+        if (!url) return;
 
-            if (isActive) {
-                mangaImage.onload = () => {
-                    translateImage();
-                };
-            }
-        }
-    });
-
-    async function translateImage() {
+        infoText.style.display = 'none';
+        readerView.innerHTML = '';
         loadingIndicator.style.display = 'block';
-        overlaysContainer.innerHTML = '';
+        loadingIndicator.textContent = 'Pobieranie strony...';
 
         try {
-            // Użycie Tesseract.js do rozpoznania tekstu
-            // Język domyślny: angielski (eng). Do japońskiego należałoby zmienić na 'jpn' lub wykrywać.
+            // Używamy corsproxy, aby pobrać HTML strony (omijając CORS)
+            const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+            const response = await fetch(proxyUrl);
+            const htmlString = await response.text();
+
+            // Parsowanie HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString, 'text/html');
+
+            // Szukanie obrazków (szukamy img, a także popularnych atrybutów lazy loading)
+            const images = doc.querySelectorAll('img');
+            const imageUrls = [];
+
+            images.forEach(img => {
+                let src = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('src');
+                if (src && !src.startsWith('data:image')) { // Ignoruj małe inline base64 (często ikony)
+                    // Napraw względne URL-e
+                    if (src.startsWith('//')) {
+                        src = 'https:' + src;
+                    } else if (src.startsWith('/')) {
+                        const urlObj = new URL(url);
+                        src = urlObj.origin + src;
+                    } else if (!src.startsWith('http')) {
+                        const urlObj = new URL(url);
+                        src = urlObj.origin + '/' + src;
+                    }
+                    imageUrls.push(src);
+                }
+            });
+
+            // Filtrowanie - często obrazki mangi to te największe lub w serii, ale w prostym PWA wyświetlimy po prostu wszystkie większe obrazki, użytkownik sam przeskroluje.
+            // Generowanie DOM dla obrazków
+            imageUrls.forEach(src => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'page-wrapper';
+
+                const img = document.createElement('img');
+                img.className = 'manga-page';
+                img.crossOrigin = 'anonymous'; // Ważne dla Tesseract.js (dostęp do canvas)
+                
+                // Przepuszczamy obrazki również przez proxy, jeśli docelowy serwer blokuje hotlinking
+                img.src = 'https://corsproxy.io/?' + encodeURIComponent(src);
+
+                const overlays = document.createElement('div');
+                overlays.className = 'overlays-container';
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(overlays);
+                readerView.appendChild(wrapper);
+            });
+
+            setupObserver();
+
+        } catch (error) {
+            console.error('Błąd pobierania strony:', error);
+            alert('Nie udało się pobrać strony. Spróbuj innego linku lub odśwież.');
+        } finally {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+
+    async function translatePage(wrapper) {
+        wrapper.dataset.translating = "true";
+        const img = wrapper.querySelector('img');
+        const overlaysContainer = wrapper.querySelector('.overlays-container');
+        
+        loadingIndicator.style.display = 'block';
+        loadingIndicator.textContent = 'Przetwarzanie OCR...';
+
+        try {
+            // Tesseract.js
             const result = await Tesseract.recognize(
-                mangaImage,
-                'eng',
+                img,
+                'eng', // Język domyślny, docelowo można dodać wybór
                 { logger: m => console.log(m) }
             );
 
-            const blocks = result.data.blocks;
+            const blocks = result.data.blocks || [];
             
             for (const block of blocks) {
-                if (block.text.trim().length < 2) continue; // ignoruj pojedyncze śmieciowe znaki
+                if (block.text.trim().length < 2) continue;
 
-                // Tłumaczenie tekstu bloku
+                // Tłumaczenie
                 const translatedText = await fetchTranslation(block.text);
 
-                // Skalowanie bounding boxa z oryginalnego obrazka na wyświetlany rozmiar
-                const scaleX = mangaImage.clientWidth / mangaImage.naturalWidth;
-                const scaleY = mangaImage.clientHeight / mangaImage.naturalHeight;
+                // Skalowanie pozycji z oryginału na aktualny wymiar obrazka na ekranie
+                const scaleX = img.clientWidth / img.naturalWidth;
+                const scaleY = img.clientHeight / img.naturalHeight;
 
                 const { x0, y0, x1, y1 } = block.bbox;
                 const left = x0 * scaleX;
@@ -84,46 +170,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 const width = (x1 - x0) * scaleX;
                 const height = (y1 - y0) * scaleY;
 
-                // Utworzenie nakładki
-                createOverlay(translatedText, left, top, width, height);
+                const div = document.createElement('div');
+                div.className = 'text-overlay';
+                div.style.left = `${left}px`;
+                div.style.top = `${top}px`;
+                div.style.width = `${width}px`;
+                div.style.height = `${height}px`;
+                div.textContent = translatedText;
+                overlaysContainer.appendChild(div);
             }
+            
+            wrapper.dataset.translated = "true";
+
         } catch (error) {
-            console.error('Błąd OCR:', error);
-            alert('Wystąpił błąd podczas rozpoznawania tekstu.');
+            console.error('Błąd OCR dla strony:', error);
         } finally {
+            delete wrapper.dataset.translating;
             loadingIndicator.style.display = 'none';
         }
     }
 
     async function fetchTranslation(text) {
         try {
-            // Darmowe API MyMemory (limitowane, ale wystarczające do prototypu)
             const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|pl`);
             const data = await res.json();
             return data.responseData.translatedText;
         } catch (e) {
             console.error('Błąd tłumaczenia:', e);
-            return text; // Zwróć oryginał w razie błędu
+            return text;
         }
     }
-
-    function createOverlay(text, x, y, w, h) {
-        const div = document.createElement('div');
-        div.className = 'text-overlay';
-        div.style.left = `${x}px`;
-        div.style.top = `${y}px`;
-        div.style.width = `${w}px`;
-        div.style.height = `${h}px`;
-        div.textContent = text;
-        overlaysContainer.appendChild(div);
-    }
 });
-
-// Rejestracja Service Workera
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker zarejestrowany', reg))
-            .catch(err => console.log('Błąd rejestracji SW', err));
-    });
-}

@@ -19,22 +19,20 @@
 
         <!-- Pasek adresu -->
         <div id="address-bar">
-            <input type="url" id="url-input" placeholder="Wklej link do obrazka mangi..." />
+            <input type="url" id="url-input" placeholder="Wklej link do rozdziału mangi (URL)..." />
             <button id="go-btn" class="app-btn">Ładuj</button>
         </div>
 
         <!-- Kontener na mangę -->
         <div id="manga-container">
-            <p id="info-text">Wklej link do obrazka ze stroną mangi (.jpg/.png), aby ją wczytać i przetłumaczyć.</p>
-            <div id="image-wrapper">
-                <img id="manga-image" crossorigin="anonymous" src="" alt="" style="display:none;" />
-                <!-- Kontener na nakładki z przetłumaczonym tekstem -->
-                <div id="overlays"></div>
+            <p id="info-text">Wklej link do strony z mangą, abyśmy wyciągnęli z niej obrazki. Tłumaczenie będzie działać na bieżąco podczas przewijania.</p>
+            <div id="manga-reader-view">
+                <!-- Tutaj będą generowane obrazki -->
             </div>
         </div>
         
         <!-- Wskaźnik ładowania -->
-        <div id="loading" style="display:none;">Przetwarzanie (OCR)...</div>
+        <div id="loading" style="display:none;">Przetwarzanie...</div>
     </div>
 
     <script src="app.js"></script>
