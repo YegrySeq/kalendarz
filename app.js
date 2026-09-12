@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearTotalHoursEl = document.getElementById('year-total-hours');
 
     // Notatki
-    const noteDaySelect = document.getElementById('note-day-select');
+    const noteDayHidden = document.getElementById('note-day-hidden');
+    const selectedNoteDayLabel = document.getElementById('selected-note-day-label');
     const noteTextInput = document.getElementById('note-text');
     const addNoteBtn = document.getElementById('add-note-btn');
     const notesList = document.getElementById('notes-list');
@@ -36,6 +37,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDate = new Date();
     let selectedDays = new Set();
     
+    // Motyw ciemny
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    let isDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (isDarkMode) document.body.classList.add('dark-mode');
+    
+    themeToggleBtn.addEventListener('click', () => {
+        isDarkMode = !isDarkMode;
+        if (isDarkMode) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
+        localStorage.setItem('darkMode', isDarkMode);
+    });
+
     // Inicjalizacja danych z localStorage
     let workData = JSON.parse(localStorage.getItem('workCalendarData')) || {};
     let hourlyRate = parseFloat(localStorage.getItem('hourlyRate')) || 30;
@@ -108,23 +121,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cell.innerHTML = `
                 <div class="day-header">${day}</div>
-                <input type="number" class="hours-input" placeholder="-" value="${data.hours}" min="0" step="0.5">
+                <div style="display: flex; align-items: center; justify-content: center; width: 100%;">
+                    <input type="number" class="hours-input" placeholder="-" value="${data.hours}" min="0" step="0.5">
+                    <span class="hours-suffix" style="display: ${data.hours ? 'inline' : 'none'}; font-size: 11px; font-weight: 600; color: var(--text-color); margin-left: 2px; pointer-events: none;">h</span>
+                </div>
             `;
+            
+            if (data.note) {
+                cell.innerHTML += `<div class="note-indicator"></div>`;
+            }
 
-            // Obsługa kliknięcia (zaznaczanie) - ignorujemy kliknięcie w input
-            cell.addEventListener('click', (e) => {
-                if (e.target.tagName !== 'INPUT') {
+            // Obsługa kliknięcia i przytrzymania
+            let pressTimer = null;
+            
+            function handlePressStart(e) {
+                if (e.target.tagName === 'INPUT') return;
+                pressTimer = setTimeout(() => {
+                    pressTimer = null;
                     toggleDaySelection(cell, day);
+                }, 500); // 500ms dla długiego przytrzymania
+            }
+
+            function handlePressEnd(e) {
+                if (e.target.tagName === 'INPUT') return;
+                if (pressTimer !== null) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                    
+                    // Jeśli tryb masowy jest aktywny, zwykłe kliknięcie też zaznacza
+                    if (selectedDays.size > 0) {
+                        toggleDaySelection(cell, day);
+                    } else {
+                        // Szybkie kliknięcie: wybór dla notatki oraz opcjonalne odfajkowanie
+                        noteDayHidden.value = day;
+                        selectedNoteDayLabel.textContent = `Wybrano: ${day} ${monthNames[month]}`;
+                        
+                        // Oznaczanie jako gotowe jeśli wpisano godziny
+                        if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
+                        if (workData[monthKey][day].hours && workData[monthKey][day].hours > 0) {
+                            workData[monthKey][day].worked = !workData[monthKey][day].worked;
+                            if (workData[monthKey][day].worked) {
+                                cell.classList.add('worked');
+                                cell.classList.remove('has-hours');
+                            } else {
+                                cell.classList.remove('worked');
+                                cell.classList.add('has-hours');
+                            }
+                            saveData();
+                            calculateTotal();
+                        }
+                    }
+                }
+            }
+
+            // Pointer events obsługują zarówno dotyk jak i mysz
+            cell.addEventListener('pointerdown', handlePressStart);
+            cell.addEventListener('pointerup', handlePressEnd);
+            cell.addEventListener('pointerleave', () => {
+                if (pressTimer !== null) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
                 }
             });
 
+            // Zapobiegaj domyślnemu menu kontekstowemu przy długim dotyku na telefonie
+            cell.addEventListener('contextmenu', e => e.preventDefault());
+
             // Obsługa zmiany godzin
             const input = cell.querySelector('.hours-input');
+            const suffix = cell.querySelector('.hours-suffix');
             input.addEventListener('input', (e) => {
                 const val = e.target.value;
                 if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
                 workData[monthKey][day].hours = val;
                 
+                if (val) suffix.style.display = 'inline';
+                else suffix.style.display = 'none';
+
                 // Automatyczna zmiana koloru przy wpisywaniu
                 if (!workData[monthKey][day].worked) {
                     if (val && val > 0) cell.classList.add('has-hours');
@@ -137,21 +210,14 @@ document.addEventListener('DOMContentLoaded', () => {
             calendarGrid.appendChild(cell);
         }
 
-        // Renderowanie list dropdown notatek i samej listy notatek
-        noteDaySelect.innerHTML = '';
+        // Renderowanie listy notatek
         notesList.innerHTML = '';
+        selectedNoteDayLabel.textContent = 'Zaznacz dzień na kalendarzu';
 
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
         for (let day = 1; day <= daysInMonth; day++) {
-            // Opcja do wyboru w dropdownie
-            const opt = document.createElement('option');
-            opt.value = day;
-            opt.textContent = `${day} ${monthNames[month]}`;
-            if (day === today.getDate() && isCurrentMonth) opt.selected = true;
-            noteDaySelect.appendChild(opt);
-
             // Wyświetlanie notatki, jeśli istnieje
             const data = workData[monthKey][day];
             if (data && data.note) {
@@ -248,9 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event notatek
     addNoteBtn.addEventListener('click', () => {
-        const day = noteDaySelect.value;
+        const day = noteDayHidden.value;
         const text = noteTextInput.value.trim();
-        if (text === '') return;
+        if (text === '' || !day) return;
 
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -262,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         workData[monthKey][day].note = text;
         
         noteTextInput.value = '';
+        selectedNoteDayLabel.textContent = 'Zaznacz dzień na kalendarzu';
         saveData();
         renderCalendar();
     });
@@ -291,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cell) {
                 if (val !== '') {
                     cell.querySelector('.hours-input').value = val;
+                    cell.querySelector('.hours-suffix').style.display = 'inline';
                     if (val > 0) cell.classList.add('has-hours');
                     else cell.classList.remove('has-hours');
                 }

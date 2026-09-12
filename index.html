@@ -17,7 +17,10 @@
             <h2 id="current-month-label" style="font-size: 18px; margin: 0; font-weight: 700; color: var(--text-color);">Wrzesień 2026</h2>
             <button id="next-month" style="background: none; border: none; font-size: 24px; color: var(--primary-color); cursor: pointer;">&gt;</button>
         </div>
-        <button id="install-btn" class="hidden" style="background: none; border: none; font-size: 18px; cursor: pointer;">📲</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button id="theme-toggle-btn" style="background: none; border: none; font-size: 18px; cursor: pointer;">🌙</button>
+            <button id="install-btn" class="hidden" style="background: none; border: none; font-size: 18px; cursor: pointer;">📲</button>
+        </div>
     </div>
     
     <div id="month-header-stats" style="display: flex; justify-content: space-between; align-items: center; background: var(--primary-gradient); padding: 8px 15px; border-radius: 12px; margin: 0 10px 10px 10px; color: white; box-shadow: 0 4px 10px rgba(108, 92, 231, 0.2);">
@@ -38,12 +41,15 @@
             <!-- Dni kalendarza generowane przez JS -->
         </div>
 
-        <div class="notes-section">
-            <h3 style="font-size: 14px; margin: 15px 0 10px 0; color: var(--text-muted);">Notatki i Zmiany</h3>
-            <div class="add-note-form" style="display: flex; gap: 5px; margin-bottom: 15px;">
-                <select id="note-day-select" style="padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); outline: none;"></select>
-                <input type="text" id="note-text" placeholder="Wpisz notatkę (np. Na 8:00)..." style="flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); outline: none; font-size: 13px;">
-                <button id="add-note-btn" style="background: var(--primary-gradient); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">Dodaj</button>
+        <div class="notes-section" style="background: var(--card-bg); padding: 15px; border-radius: 16px; margin: 10px 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+            <h3 style="font-size: 14px; margin-top: 0; margin-bottom: 10px; color: var(--primary-color); display: flex; justify-content: space-between; align-items: center;">
+                <span>📝 Notatki</span>
+                <span id="selected-note-day-label" style="font-size: 11px; color: var(--text-muted); font-weight: normal; background: var(--bg-color); padding: 4px 8px; border-radius: 8px;">Wybierz dzień z kalendarza</span>
+            </h3>
+            <div class="add-note-form" style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="hidden" id="note-day-hidden" value="1">
+                <input type="text" id="note-text" placeholder="Wpisz treść notatki..." style="flex: 1; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-color); outline: none; font-size: 13px; background: #f9f9f9; color: var(--text-color);">
+                <button id="add-note-btn" style="background: var(--primary-gradient); color: white; border: none; padding: 0 18px; border-radius: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 5px rgba(108, 92, 231, 0.3); font-size: 18px;">+</button>
             </div>
             <div id="notes-list" class="notes-list">
                 <!-- Notatki generowane z JS -->
