@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Manga Translator</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <!-- Tesseract.js do OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Ramka sygnalizująca działanie (żółta) -->
+        <div id="status-border" class="inactive"></div>
+
+        <!-- Ukryty przycisk Start/Stop -->
+        <button id="toggle-btn" class="app-btn start">▶ Start</button>
+
+        <!-- Pasek adresu -->
+        <div id="address-bar">
+            <input type="url" id="url-input" placeholder="Wklej link do obrazka mangi..." />
+            <button id="go-btn" class="app-btn">Ładuj</button>
+        </div>
+
+        <!-- Kontener na mangę -->
+        <div id="manga-container">
+            <p id="info-text">Wklej link do obrazka ze stroną mangi (.jpg/.png), aby ją wczytać i przetłumaczyć.</p>
+            <div id="image-wrapper">
+                <img id="manga-image" crossorigin="anonymous" src="" alt="" style="display:none;" />
+                <!-- Kontener na nakładki z przetłumaczonym tekstem -->
+                <div id="overlays"></div>
+            </div>
+        </div>
+        
+        <!-- Wskaźnik ładowania -->
+        <div id="loading" style="display:none;">Przetwarzanie (OCR)...</div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
