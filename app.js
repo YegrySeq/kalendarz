@@ -240,6 +240,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Eksport i Import Danych (Backup)
+    const exportBtn = document.getElementById('export-btn');
+    const importFileInput = document.getElementById('import-file');
+
+    exportBtn.addEventListener('click', () => {
+        const dataToExport = {
+            workData: workData,
+            hourlyRate: hourlyRate
+        };
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "kalendarz_pracy_backup.json");
+        document.body.appendChild(downloadAnchorNode); // dla Firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    });
+
+    importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                if (importedData && importedData.workData) {
+                    workData = importedData.workData;
+                    if (importedData.hourlyRate) hourlyRate = importedData.hourlyRate;
+                    
+                    hourlyRateInput.value = hourlyRate;
+                    saveData();
+                    renderCalendar();
+                    alert("Dane zostały pomyślnie wgrane!");
+                } else {
+                    alert("Plik nie zawiera poprawnych danych kalendarza.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Błąd podczas czytania pliku.");
+            }
+        };
+        reader.readAsText(file);
+        // Resetowanie inputa
+        importFileInput.value = "";
+    });
+
     // Initial render
     renderCalendar();
 });

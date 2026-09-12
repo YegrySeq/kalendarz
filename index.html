@@ -11,7 +11,14 @@
 </head>
 <body>
     <header class="app-header">
-        <button id="install-btn" class="hidden" style="width: 100%; margin-bottom: 10px; background: #28a745; color: white; border: none; padding: 10px; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 Zainstaluj Aplikację</button>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+            <button id="install-btn" class="hidden" style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px;">📲 Instaluj</button>
+            <div style="display: flex; gap: 5px; margin-left: auto;">
+                <button id="export-btn" style="background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">💾 Zapisz (Eksport)</button>
+                <label for="import-file" style="background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">📂 Wgraj (Import)</label>
+                <input type="file" id="import-file" accept=".json" style="display: none;">
+            </div>
+        </div>
         <div class="month-selector">
             <button id="prev-month">&lt;</button>
             <h2 id="current-month-label">Wrzesień 2026</h2>
