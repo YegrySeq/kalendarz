@@ -12,7 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyBulkBtn = document.getElementById('apply-bulk');
     const cancelBulkBtn = document.getElementById('cancel-bulk');
 
-    const monthHeaderTop = document.getElementById('month-header-top');
+    const mainHeader = document.getElementById('main-header');
+    const monthSelector = document.getElementById('month-selector');
+    const yearSelector = document.getElementById('year-selector');
     const monthHeaderStats = document.getElementById('month-header-stats');
     const mainCalendarView = document.getElementById('main-calendar-view');
     const yearViewContainer = document.getElementById('year-view-container');
@@ -37,17 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDate = new Date();
     let selectedDays = new Set();
     
-    // Motyw ciemny
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    let isDarkMode = localStorage.getItem('darkMode') === 'true';
-    if (isDarkMode) document.body.classList.add('dark-mode');
-    
-    themeToggleBtn.addEventListener('click', () => {
-        isDarkMode = !isDarkMode;
-        if (isDarkMode) document.body.classList.add('dark-mode');
-        else document.body.classList.remove('dark-mode');
-        localStorage.setItem('darkMode', isDarkMode);
-    });
+    // Dark mode removed
+
 
     // Inicjalizacja danych z localStorage
     let workData = JSON.parse(localStorage.getItem('workCalendarData')) || {};
@@ -120,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (data.hours && data.hours > 0) cell.classList.add('has-hours');
 
             cell.innerHTML = `
+                <div class="check-toggle" style="display: ${data.hours && data.hours > 0 ? 'flex' : 'none'}">${data.worked ? '✓' : ''}</div>
                 <div class="day-header">${day}</div>
                 <div style="display: flex; align-items: center; justify-content: center; width: 100%;">
                     <input type="number" class="hours-input" placeholder="-" value="${data.hours}" min="0" step="0.5">
@@ -131,61 +125,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.innerHTML += `<div class="note-indicator"></div>`;
             }
 
-            // Obsługa kliknięcia i przytrzymania
-            let pressTimer = null;
+            const checkToggle = cell.querySelector('.check-toggle');
             
-            function handlePressStart(e) {
-                if (e.target.tagName === 'INPUT') return;
-                pressTimer = setTimeout(() => {
-                    pressTimer = null;
-                    toggleDaySelection(cell, day);
-                }, 500); // 500ms dla długiego przytrzymania
-            }
-
-            function handlePressEnd(e) {
-                if (e.target.tagName === 'INPUT') return;
-                if (pressTimer !== null) {
-                    clearTimeout(pressTimer);
-                    pressTimer = null;
-                    
-                    // Jeśli tryb masowy jest aktywny, zwykłe kliknięcie też zaznacza
-                    if (selectedDays.size > 0) {
-                        toggleDaySelection(cell, day);
-                    } else {
-                        // Szybkie kliknięcie: wybór dla notatki oraz opcjonalne odfajkowanie
-                        noteDayHidden.value = day;
-                        selectedNoteDayLabel.textContent = `Wybrano: ${day} ${monthNames[month]}`;
-                        
-                        // Oznaczanie jako gotowe jeśli wpisano godziny
-                        if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
-                        if (workData[monthKey][day].hours && workData[monthKey][day].hours > 0) {
-                            workData[monthKey][day].worked = !workData[monthKey][day].worked;
-                            if (workData[monthKey][day].worked) {
-                                cell.classList.add('worked');
-                                cell.classList.remove('has-hours');
-                            } else {
-                                cell.classList.remove('worked');
-                                cell.classList.add('has-hours');
-                            }
-                            saveData();
-                            calculateTotal();
-                        }
-                    }
+            // Proste odfajkowanie po kliknięciu w kółko
+            checkToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!workData[monthKey][day]) workData[monthKey][day] = { hours: '', worked: false };
+                workData[monthKey][day].worked = !workData[monthKey][day].worked;
+                
+                if (workData[monthKey][day].worked) {
+                    cell.classList.add('worked');
+                    cell.classList.remove('has-hours');
+                    checkToggle.textContent = '✓';
+                } else {
+                    cell.classList.remove('worked');
+                    cell.classList.add('has-hours');
+                    checkToggle.textContent = '';
                 }
-            }
+                saveData();
+                calculateTotal();
+            });
 
-            // Pointer events obsługują zarówno dotyk jak i mysz
-            cell.addEventListener('pointerdown', handlePressStart);
-            cell.addEventListener('pointerup', handlePressEnd);
-            cell.addEventListener('pointerleave', () => {
-                if (pressTimer !== null) {
-                    clearTimeout(pressTimer);
-                    pressTimer = null;
+            // Kliknięcie w komórkę wybiera ją do notatki (lub zaznacza jeśli bulk aktywny)
+            cell.addEventListener('click', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                
+                if (selectedDays.size > 0) {
+                    toggleDaySelection(cell, day);
+                } else {
+                    noteDayHidden.value = day;
+                    selectedNoteDayLabel.textContent = `Wybrano: ${day} ${monthNames[month]}`;
                 }
             });
 
-            // Zapobiegaj domyślnemu menu kontekstowemu przy długim dotyku na telefonie
-            cell.addEventListener('contextmenu', e => e.preventDefault());
+            // Zaznaczanie wielu - długie przytrzymanie (mobilnie contextmenu)
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                toggleDaySelection(cell, day);
+            });
+
 
             // Obsługa zmiany godzin
             const input = cell.querySelector('.hours-input');
@@ -197,6 +175,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (val) suffix.style.display = 'inline';
                 else suffix.style.display = 'none';
+
+                if (val && val > 0) {
+                    checkToggle.style.display = 'flex';
+                } else {
+                    checkToggle.style.display = 'none';
+                }
 
                 // Automatyczna zmiana koloru przy wpisywaniu
                 if (!workData[monthKey][day].worked) {
@@ -446,6 +430,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const card = document.createElement('div');
             card.className = 'month-card';
+            
+            const realToday = new Date();
+            if (realToday.getFullYear() === currentYearView && realToday.getMonth() === m) {
+                card.classList.add('current-month');
+            }
+
             card.innerHTML = `
                 <h3>${monthNames[m]}</h3>
                 <div class="month-hours">${monthHours}h</div>
@@ -476,14 +466,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isYearView) {
             currentYearView = currentDate.getFullYear();
             renderYearView();
-            monthHeaderTop.classList.add('hidden');
+            monthSelector.classList.add('hidden');
+            yearSelector.classList.remove('hidden');
             monthHeaderStats.classList.add('hidden');
             mainCalendarView.classList.add('hidden');
             yearViewContainer.classList.remove('hidden');
-            toggleViewBtn.textContent = '📅 Wróć do miesiąca';
+            toggleViewBtn.textContent = '📅 Wróć';
         } else {
             renderCalendar();
-            monthHeaderTop.classList.remove('hidden');
+            monthSelector.classList.remove('hidden');
+            yearSelector.classList.add('hidden');
             monthHeaderStats.classList.remove('hidden');
             mainCalendarView.classList.remove('hidden');
             yearViewContainer.classList.add('hidden');
