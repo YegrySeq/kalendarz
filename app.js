@@ -146,9 +146,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 calculateTotal();
             });
 
-            // Kliknięcie w komórkę wybiera ją do notatki (lub zaznacza jeśli bulk aktywny)
+            // Kliknięcie i przytrzymanie (zaznaczanie wielu / notatki)
+            let pressTimer = null;
+            let isLongPress = false;
+
+            function startPress(e) {
+                if (e.target.tagName === 'INPUT' || e.target.classList.contains('check-toggle')) return;
+                isLongPress = false;
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    toggleDaySelection(cell, day);
+                    // Vibrate na wspieranych urządzeniach dla feedbacku
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }, 500);
+            }
+
+            function cancelPress() {
+                if (pressTimer !== null) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            }
+
+            cell.addEventListener('touchstart', startPress, { passive: true });
+            cell.addEventListener('touchmove', cancelPress, { passive: true });
+            cell.addEventListener('touchend', cancelPress);
+            cell.addEventListener('touchcancel', cancelPress);
+            
+            // Mouse support for desktop testing
+            cell.addEventListener('mousedown', startPress);
+            cell.addEventListener('mousemove', cancelPress);
+            cell.addEventListener('mouseup', cancelPress);
+            cell.addEventListener('mouseleave', cancelPress);
+
+            cell.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (e.target.tagName !== 'INPUT' && !e.target.classList.contains('check-toggle')) {
+                     // toggleDaySelection(cell, day); // Optional: keep for right-click on desktop
+                }
+            });
+
+            // Główne kliknięcie (zabezpieczone przed odpaleniem po long-pressie)
             cell.addEventListener('click', (e) => {
-                if (e.target.tagName === 'INPUT') return;
+                if (e.target.tagName === 'INPUT' || e.target.classList.contains('check-toggle')) return;
+                if (isLongPress) {
+                    isLongPress = false;
+                    return; // Zignoruj kliknięcie, jeśli to było długie przytrzymanie
+                }
                 
                 if (selectedDays.size > 0) {
                     toggleDaySelection(cell, day);
@@ -156,12 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     noteDayHidden.value = day;
                     selectedNoteDayLabel.textContent = `Wybrano: ${day} ${monthNames[month]}`;
                 }
-            });
-
-            // Zaznaczanie wielu - długie przytrzymanie (mobilnie contextmenu)
-            cell.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                toggleDaySelection(cell, day);
             });
 
 
@@ -340,15 +378,23 @@ document.addEventListener('DOMContentLoaded', () => {
             // Aktualizacja widoku bez pełnego renderCalendar by było szybciej
             const cell = document.querySelector(`.day-cell[data-day="${day}"]`);
             if (cell) {
+                const checkToggle = cell.querySelector('.check-toggle');
                 if (val !== '') {
                     cell.querySelector('.hours-input').value = val;
                     cell.querySelector('.hours-suffix').style.display = 'inline';
-                    if (val > 0) cell.classList.add('has-hours');
-                    else cell.classList.remove('has-hours');
+                    
+                    if (val > 0) {
+                        cell.classList.add('has-hours');
+                        if (checkToggle) checkToggle.style.display = 'flex';
+                    } else {
+                        cell.classList.remove('has-hours');
+                        if (checkToggle) checkToggle.style.display = 'none';
+                    }
                 }
                 if (markAsWorked) {
                     cell.classList.add('worked');
                     cell.classList.remove('has-hours');
+                    if (checkToggle) checkToggle.textContent = '✓';
                 }
                 cell.classList.remove('selected');
             }
@@ -373,30 +419,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const installBtn = document.getElementById('install-btn');
     let deferredPrompt;
 
+    // Sprawdź czy to urządzenie Apple (iOS)
+    const isIos = () => {
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        return /iphone|ipad|ipod/.test(userAgent);
+    };
+    
+    // Sprawdź czy aplikacja jest już w trybie standalone (zainstalowana)
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
+    // Zawsze pokazujemy przycisk na telefonach (chyba że już zainstalowane na iOS)
+    if (!isInStandaloneMode()) {
+        installBtn.classList.remove('hidden');
+    }
+
     window.addEventListener('beforeinstallprompt', (e) => {
-        // Zapobiegaj domyślnemu wyświetlaniu mini-infobara (na starszych przeglądarkach)
         e.preventDefault();
-        // Zapisz zdarzenie, aby móc je wywołać po kliknięciu
         deferredPrompt = e;
-        // Pokaż przycisk instalacji
         installBtn.classList.remove('hidden');
     });
 
     installBtn.addEventListener('click', async () => {
         if (deferredPrompt) {
-            // Wyświetl właściwy prompt instalacji PWA
             deferredPrompt.prompt();
-            // Czekaj na wybór użytkownika
             const { outcome } = await deferredPrompt.userChoice;
             console.log(`User response to the install prompt: ${outcome}`);
-            // Ukryj przycisk po obsłużeniu
             deferredPrompt = null;
-            installBtn.classList.add('hidden');
+        } else if (isIos()) {
+            alert('Aby zainstalować na iPhonie:\n1. Kliknij ikonę udostępniania na dole ekranu (Kwadrat ze strzałką w górę)\n2. Wybierz "Do ekranu początkowego" (Add to Home Screen)');
+        } else {
+            alert('Aby zainstalować aplikację:\nKliknij menu przeglądarki (trzy kropki) i wybierz "Dodaj do ekranu głównego" lub "Zainstaluj aplikację".');
         }
     });
 
     window.addEventListener('appinstalled', () => {
-        console.log('Aplikacja została pomyślnie zainstalowana');
         installBtn.classList.add('hidden');
     });
 
