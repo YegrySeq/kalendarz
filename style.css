@@ -232,6 +232,18 @@ body {
     order: -1;
 }
 
+.note-item.note-yesterday {
+    order: 99;
+    opacity: 0.6;
+    background: #f5f5f5;
+    border-left-color: #bdbdbd;
+}
+
+.note-item.note-yesterday .note-text-span {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
 .note-item .delete-note {
     background: transparent;
     border: none;

@@ -236,28 +236,32 @@ document.addEventListener('DOMContentLoaded', () => {
         notesList.innerHTML = '';
         selectedNoteDayLabel.textContent = 'Zaznacz dzień na kalendarzu';
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
 
         for (let day = 1; day <= daysInMonth; day++) {
             // Wyświetlanie notatki, jeśli istnieje
             const data = workData[monthKey][day];
             if (data && data.note) {
+                const utcNote = Date.UTC(year, month, day);
+                const diffDays = Math.floor((utcToday - utcNote) / (1000 * 60 * 60 * 24));
+
+                // 2+ dni temu - znika (nie renderujemy z list)
+                if (diffDays >= 2) continue;
+
                 const noteDiv = document.createElement('div');
                 noteDiv.className = 'note-item';
                 
-                // Priorytety na podstawie daty dzisiejszej/jutrzejszej
-                if (isCurrentMonth && day === today.getDate()) {
+                // Priorytety na podstawie różnicy dni
+                if (diffDays === 0) {
                     noteDiv.classList.add('note-today');
-                } else if (today.getFullYear() === year && today.getMonth() === month && day === tomorrow.getDate()) {
+                } else if (diffDays === -1) {
                     noteDiv.classList.add('note-tomorrow');
-                } else if (tomorrow.getMonth() !== today.getMonth() && today.getFullYear() === year && month === tomorrow.getMonth() && day === tomorrow.getDate()) {
-                    // Jeśli jutro jest w następnym miesiącu i aktualnie patrzymy na następny miesiąc
-                    noteDiv.classList.add('note-tomorrow');
+                } else if (diffDays === 1) {
+                    noteDiv.classList.add('note-yesterday');
                 }
 
                 noteDiv.innerHTML = `
-                    <div><strong>${day} ${monthNames[month]}:</strong> ${data.note}</div>
+                    <div class="note-content"><strong>${day} ${monthNames[month]}:</strong> <span class="note-text-span">${data.note}</span></div>
                     <button class="delete-note" data-day="${day}">✕</button>
                 `;
                 

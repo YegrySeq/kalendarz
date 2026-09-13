@@ -1,4 +1,4 @@
-const CACHE_NAME = 'work-calendar-v16';
+const CACHE_NAME = 'work-calendar-v17';
 const ASSETS = [
     './',
     './index.html',
