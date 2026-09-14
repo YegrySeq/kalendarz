@@ -35,7 +35,7 @@
             <div>
                 Stawka: <input type="number" id="hourly-rate" value="30" style="width: 45px; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; padding: 2px 5px; color: white; font-weight: bold; font-size: 14px; text-align: center; outline: none;"> zł
             </div>
-            <button id="fill-month-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; padding: 3px 8px; color: white; cursor: pointer; font-size: 11px; font-weight: bold;">Pon-Pt</button>
+            <button id="fill-month-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; padding: 3px 8px; color: white; cursor: pointer; font-size: 11px; font-weight: bold;">Wypełnij</button>
         </div>
         <div style="text-align: right; line-height: 1.2;">
             <div style="font-size: 16px; font-weight: 700;" id="total-money">0 zł</div>
@@ -99,6 +99,36 @@
                 <button id="apply-bulk-done" style="background: var(--success-gradient);">+ Oznacz ✓</button>
             </div>
             <button id="cancel-bulk" class="cancel-btn">Anuluj</button>
+        </div>
+    </div>
+
+    <!-- Modal do autouzupełniania miesiąca -->
+    <div id="fill-month-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 300; display: flex; align-items: center; justify-content: center;">
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+            <h3 style="margin-top: 0; margin-bottom: 15px; color: var(--primary-color);">Wypełnij dni w miesiącu</h3>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 5px;">Wybierz dni tygodnia:</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="1" checked> Pon</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="2" checked> Wto</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="3" checked> Śro</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="4" checked> Czw</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="5" checked> Pią</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="6"> Sob</label>
+                    <label class="day-checkbox-label"><input type="checkbox" class="fill-day-cb" value="0"> Nie</label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 5px;">Ilość godzin:</label>
+                <input type="number" id="fill-month-hours" value="8" min="0" max="24" step="0.5" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 16px; outline: none;">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button id="confirm-fill-btn" style="flex: 1; background: var(--primary-gradient); color: white; border: none; padding: 12px; border-radius: 4px; font-weight: 700; cursor: pointer;">Zastosuj</button>
+                <button id="cancel-fill-btn" style="flex: 1; background: #dfe6e9; color: var(--text-color); border: none; padding: 12px; border-radius: 4px; font-weight: 700; cursor: pointer;">Anuluj</button>
+            </div>
         </div>
     </div>
 

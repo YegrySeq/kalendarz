@@ -364,29 +364,51 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const fillMonthBtn = document.getElementById('fill-month-btn');
-    if (fillMonthBtn) {
+    const fillMonthModal = document.getElementById('fill-month-modal');
+    const confirmFillBtn = document.getElementById('confirm-fill-btn');
+    const cancelFillBtn = document.getElementById('cancel-fill-btn');
+    const fillMonthHoursInput = document.getElementById('fill-month-hours');
+    
+    if (fillMonthBtn && fillMonthModal) {
         fillMonthBtn.addEventListener('click', () => {
-            const hours = prompt("Uzupełnij grafik na ten miesiąc.\nPodaj liczbę godzin dla dni od poniedziałku do piątku:", "8");
-            if (hours !== null && hours.trim() !== '') {
-                const h = parseFloat(hours.replace(',', '.'));
-                if (!isNaN(h) && h > 0) {
-                    const year = currentDate.getFullYear();
-                    const month = currentDate.getMonth();
-                    const monthKey = getMonthKey(year, month);
-                    if (!workData[monthKey]) workData[monthKey] = {};
-                    
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    for (let d = 1; d <= daysInMonth; d++) {
-                        const date = new Date(year, month, d);
-                        const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
-                        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                            if (!workData[monthKey][d]) workData[monthKey][d] = { hours: '', worked: false };
-                            workData[monthKey][d].hours = h;
-                        }
-                    }
-                    saveData();
-                    renderCalendar();
+            fillMonthModal.classList.remove('hidden');
+        });
+
+        cancelFillBtn.addEventListener('click', () => {
+            fillMonthModal.classList.add('hidden');
+        });
+
+        confirmFillBtn.addEventListener('click', () => {
+            const h = parseFloat(fillMonthHoursInput.value);
+            if (!isNaN(h) && h >= 0) {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const monthKey = getMonthKey(year, month);
+                if (!workData[monthKey]) workData[monthKey] = {};
+                
+                // Zbieramy wybrane dni tygodnia (0 - niedziela, 1 - poniedziałek, itd.)
+                const selectedDaysOfWeek = Array.from(document.querySelectorAll('.fill-day-cb:checked')).map(cb => parseInt(cb.value));
+                
+                if (selectedDaysOfWeek.length === 0) {
+                    alert("Wybierz przynajmniej jeden dzień tygodnia.");
+                    return;
                 }
+
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const date = new Date(year, month, d);
+                    const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+                    
+                    if (selectedDaysOfWeek.includes(dayOfWeek)) {
+                        if (!workData[monthKey][d]) workData[monthKey][d] = { hours: '', worked: false };
+                        workData[monthKey][d].hours = h > 0 ? h : '';
+                    }
+                }
+                saveData();
+                renderCalendar();
+                fillMonthModal.classList.add('hidden');
+            } else {
+                alert("Wpisz poprawną ilość godzin.");
             }
         });
     }
