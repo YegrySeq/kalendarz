@@ -197,6 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (selectedDays.size > 0) {
                     toggleDaySelection(cell, day);
                 } else {
+                    document.querySelectorAll('.day-cell.selected-for-note').forEach(c => c.classList.remove('selected-for-note'));
+                    cell.classList.add('selected-for-note');
                     noteDayHidden.value = day;
                     selectedNoteDayLabel.textContent = `Wybrano: ${day} ${monthNames[month]}`;
                 }
@@ -251,8 +253,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const noteDiv = document.createElement('div');
                 noteDiv.className = 'note-item';
                 
-                // Priorytety na podstawie różnicy dni
-                if (diffDays === 0) {
+                // Priorytety na podstawie różnicy dni lub przypięcia
+                if (data.notePinned) {
+                    noteDiv.classList.add('note-pinned');
+                } else if (diffDays === 0) {
                     noteDiv.classList.add('note-today');
                 } else if (diffDays === -1) {
                     noteDiv.classList.add('note-tomorrow');
@@ -261,15 +265,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 noteDiv.innerHTML = `
-                    <div class="note-content"><strong>${day} ${monthNames[month]}:</strong> <span class="note-text-span">${data.note}</span></div>
-                    <button class="delete-note" data-day="${day}">✕</button>
+                    <div class="note-content" style="cursor:pointer;" title="Kliknij, aby edytować"><strong>${day} ${monthNames[month]}:</strong> <span class="note-text-span">${data.note}</span></div>
+                    <div class="note-actions">
+                        <button class="note-action-btn pin-btn ${data.notePinned ? 'active' : ''}" data-day="${day}">📌</button>
+                        <button class="note-action-btn delete-btn" data-day="${day}">✕</button>
+                    </div>
                 `;
                 
-                noteDiv.querySelector('.delete-note').addEventListener('click', (e) => {
+                noteDiv.querySelector('.delete-btn').addEventListener('click', (e) => {
                     const d = e.target.dataset.day;
                     workData[monthKey][d].note = '';
+                    workData[monthKey][d].notePinned = false;
                     saveData();
                     renderCalendar();
+                });
+
+                noteDiv.querySelector('.pin-btn').addEventListener('click', (e) => {
+                    const d = e.target.dataset.day;
+                    workData[monthKey][d].notePinned = !workData[monthKey][d].notePinned;
+                    saveData();
+                    renderCalendar();
+                });
+
+                noteDiv.querySelector('.note-content').addEventListener('click', () => {
+                    noteDayHidden.value = day;
+                    selectedNoteDayLabel.textContent = `Edycja: ${day} ${monthNames[month]}`;
+                    noteTextInput.value = data.note;
+                    noteTextInput.focus();
+                    document.querySelectorAll('.day-cell.selected-for-note').forEach(c => c.classList.remove('selected-for-note'));
+                    const cell = document.querySelector(`.day-cell[data-day="${day}"]`);
+                    if (cell) cell.classList.add('selected-for-note');
                 });
                 
                 notesList.appendChild(noteDiv);
@@ -337,6 +362,34 @@ document.addEventListener('DOMContentLoaded', () => {
         hourlyRate = parseFloat(e.target.value) || 0;
         saveData();
     });
+
+    const fillMonthBtn = document.getElementById('fill-month-btn');
+    if (fillMonthBtn) {
+        fillMonthBtn.addEventListener('click', () => {
+            const hours = prompt("Uzupełnij grafik na ten miesiąc.\nPodaj liczbę godzin dla dni od poniedziałku do piątku:", "8");
+            if (hours !== null && hours.trim() !== '') {
+                const h = parseFloat(hours.replace(',', '.'));
+                if (!isNaN(h) && h > 0) {
+                    const year = currentDate.getFullYear();
+                    const month = currentDate.getMonth();
+                    const monthKey = getMonthKey(year, month);
+                    if (!workData[monthKey]) workData[monthKey] = {};
+                    
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const date = new Date(year, month, d);
+                        const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+                        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                            if (!workData[monthKey][d]) workData[monthKey][d] = { hours: '', worked: false };
+                            workData[monthKey][d].hours = h;
+                        }
+                    }
+                    saveData();
+                    renderCalendar();
+                }
+            }
+        });
+    }
 
     // Event notatek
     addNoteBtn.addEventListener('click', () => {
@@ -531,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             monthHeaderStats.classList.add('hidden');
             mainCalendarView.classList.add('hidden');
             yearViewContainer.classList.remove('hidden');
-            toggleViewBtn.textContent = '📅 Wróć';
+            toggleViewBtn.textContent = 'Wróć';
         } else {
             renderCalendar();
             monthSelector.classList.remove('hidden');
@@ -539,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
             monthHeaderStats.classList.remove('hidden');
             mainCalendarView.classList.remove('hidden');
             yearViewContainer.classList.add('hidden');
-            toggleViewBtn.textContent = '📅 Widok Roku';
+            toggleViewBtn.textContent = 'Widok Roku';
         }
     }
 
@@ -560,6 +613,32 @@ document.addEventListener('DOMContentLoaded', () => {
     saveData = function() {
         originalSaveData();
         if (isYearView) renderYearView();
+    }
+
+    // Swipe logic for mobile
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    mainCalendarView.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    mainCalendarView.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, {passive: true});
+
+    function handleSwipe() {
+        if (touchEndX < touchStartX - 50) {
+            // Swipe left -> next month
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        }
+        if (touchEndX > touchStartX + 50) {
+            // Swipe right -> prev month
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        }
     }
 
     // Initial render

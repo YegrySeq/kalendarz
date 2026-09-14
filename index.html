@@ -11,7 +11,7 @@
 </head>
 <body>
     <div id="main-header" style="display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; background: var(--bg-color);">
-        <button id="toggle-view-btn" class="header-btn">📅 Rok</button>
+        <button id="toggle-view-btn" class="header-btn">Rok</button>
         
         <div id="month-selector" class="selector-group" style="display: flex; align-items: center; gap: 10px;">
             <button id="prev-month" class="nav-btn">&lt;</button>
@@ -26,13 +26,16 @@
         </div>
 
         <div style="display: flex; gap: 10px; align-items: center;">
-            <button id="install-btn" class="header-btn hidden">📲 Instaluj</button>
+            <button id="install-btn" class="header-btn hidden">Instaluj</button>
         </div>
     </div>
     
     <div id="month-header-stats" style="display: flex; justify-content: space-between; align-items: center; background: var(--primary-gradient); padding: 10px 15px; border-radius: 4px; margin: 0 10px 10px 10px; color: white; box-shadow: var(--shadow);">
-        <div style="font-size: 13px; display: flex; align-items: center;">
-            Stawka: <input type="number" id="hourly-rate" value="30" style="width: 45px; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; padding: 2px 5px; color: white; font-weight: bold; font-size: 14px; text-align: center; margin-left: 5px; outline: none;"> zł
+        <div style="font-size: 13px; display: flex; align-items: center; gap: 10px;">
+            <div>
+                Stawka: <input type="number" id="hourly-rate" value="30" style="width: 45px; background: rgba(255,255,255,0.2); border: none; border-radius: 4px; padding: 2px 5px; color: white; font-weight: bold; font-size: 14px; text-align: center; outline: none;"> zł
+            </div>
+            <button id="fill-month-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; padding: 3px 8px; color: white; cursor: pointer; font-size: 11px; font-weight: bold;">Pon-Pt</button>
         </div>
         <div style="text-align: right; line-height: 1.2;">
             <div style="font-size: 16px; font-weight: 700;" id="total-money">0 zł</div>
@@ -50,7 +53,7 @@
 
         <div class="notes-section">
             <h3 style="font-size: 14px; margin-top: 0; margin-bottom: 10px; color: var(--primary-color); display: flex; justify-content: space-between; align-items: center;">
-                <span>📝 Notatki</span>
+                <span>Notatki</span>
                 <span id="selected-note-day-label" style="font-size: 11px; color: var(--text-muted); font-weight: normal; background: var(--bg-color); padding: 4px 8px; border-radius: 4px;">Wybierz dzień z kalendarza</span>
             </h3>
             <div class="add-note-form" style="display: flex; gap: 8px; margin-bottom: 15px;">
