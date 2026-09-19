@@ -54,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('workCalendarData', JSON.stringify(workData));
         localStorage.setItem('hourlyRate', hourlyRate);
         calculateTotal();
+        if (typeof checkAndShowNotifications === 'function') {
+            checkAndShowNotifications();
+        }
     }
 
     function getMonthKey(year, month) {
@@ -662,6 +665,72 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCalendar();
         }
     }
+
+    // --- POWIADOMIENIA ---
+    function initNotifications() {
+        if (!("Notification" in window)) return;
+        
+        document.body.addEventListener('click', () => {
+            if (Notification.permission === "default") {
+                Notification.requestPermission().then(() => {
+                    checkAndShowNotifications();
+                });
+            }
+        }, { once: true });
+        
+        checkAndShowNotifications();
+        
+        // Sprawdzaj co minutę (dla otwartej aplikacji)
+        setInterval(checkAndShowNotifications, 60000);
+    }
+
+    function checkAndShowNotifications() {
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const checkDay = (date, isTomorrow) => {
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const day = date.getDate();
+            const monthKey = getMonthKey(year, month);
+            
+            if (workData[monthKey] && workData[monthKey][day] && workData[monthKey][day].note) {
+                const noteText = workData[monthKey][day].note;
+                const notifyKey = isTomorrow ? `notify_tomorrow_${year}_${month}_${day}_${noteText}` : `notify_today_${year}_${month}_${day}_${noteText}`;
+                
+                if (!localStorage.getItem(notifyKey)) {
+                    const title = isTomorrow ? "JUTRO 🔔" : "TO DZIŚ ❗";
+                    
+                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            try {
+                                registration.showNotification(title, {
+                                    body: noteText,
+                                    icon: 'icon.svg',
+                                    vibrate: [200, 100, 200]
+                                }).catch(err => {
+                                    new Notification(title, { body: noteText, icon: 'icon.svg' });
+                                });
+                            } catch(e) {
+                                new Notification(title, { body: noteText, icon: 'icon.svg' });
+                            }
+                        });
+                    } else {
+                        new Notification(title, { body: noteText, icon: 'icon.svg' });
+                    }
+                    localStorage.setItem(notifyKey, 'true');
+                }
+            }
+        };
+
+        checkDay(today, false);
+        checkDay(tomorrow, true);
+    }
+
+    initNotifications();
 
     // Initial render
     renderCalendar();
