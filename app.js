@@ -538,10 +538,81 @@ document.addEventListener('DOMContentLoaded', () => {
         installBtn.classList.add('hidden');
     });
 
+    const updateBtn = document.getElementById('update-btn');
+
+    async function forcePWAUpdate() {
+        if (!('serviceWorker' in navigator)) {
+            window.location.reload(true);
+            return;
+        }
+
+        try {
+            // Wyczyść wszystkie pamięci podręczne (caches)
+            if ('caches' in window) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(key => caches.delete(key)));
+            }
+
+            // Wyrejestruj Service Workery
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+                await registration.unregister();
+            }
+
+            // Przeładuj stronę
+            window.location.reload(true);
+        } catch (err) {
+            console.error('Błąd wymuszania aktualizacji:', err);
+            window.location.reload(true);
+        }
+    }
+
+    if (updateBtn) {
+        updateBtn.addEventListener('click', () => {
+            if (confirm('Czy chcesz wymusić aktualizację aplikacji do najnowszej wersji?')) {
+                forcePWAUpdate();
+            }
+        });
+    }
+
     if ('serviceWorker' in navigator) {
+        let refreshing = false;
+
+        // Automatyczne odświeżenie strony po aktywacji nowego Service Workera
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
+
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('Service Worker zarejestrowany', reg))
+                .then(reg => {
+                    console.log('Service Worker zarejestrowany', reg);
+
+                    // Sprawdź czy jest nowa wersja sw.js
+                    reg.update();
+
+                    // Sprawdzaj aktualizacje przy powrocie do aplikacji/karty
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            reg.update();
+                        }
+                    });
+
+                    // Po wykryciu nowego SW wyślij SKIP_WAITING
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            });
+                        }
+                    });
+                })
                 .catch(err => console.error('Błąd rejestracji SW:', err));
         });
     }

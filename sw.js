@@ -1,4 +1,4 @@
-const CACHE_NAME = 'work-calendar-v19';
+const CACHE_NAME = 'work-calendar-v20';
 const ASSETS = [
     './',
     './index.html',
@@ -39,4 +39,10 @@ self.addEventListener('fetch', (e) => {
             return response || fetch(e.request);
         })
     );
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
