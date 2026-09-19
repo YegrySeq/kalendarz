@@ -125,7 +125,19 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             if (data.note) {
-                cell.innerHTML += `<div class="note-indicator"></div>`;
+                const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+                const utcLoop = Date.UTC(year, month, day);
+                const diffDaysLoop = Math.floor((utcLoop - utcToday) / (1000 * 60 * 60 * 24));
+                
+                if (diffDaysLoop === 0) {
+                    cell.classList.add('cell-note-today');
+                    cell.innerHTML += `<div class="today-note-badge" title="Notatka na dziś: ${data.note}">❗</div>`;
+                } else if (diffDaysLoop === 1) {
+                    cell.classList.add('cell-note-tomorrow');
+                    cell.innerHTML += `<div class="tomorrow-note-badge" title="Notatka na jutro: ${data.note}">🔔</div>`;
+                } else {
+                    cell.innerHTML += `<div class="note-indicator"></div>`;
+                }
             }
 
             const checkToggle = cell.querySelector('.check-toggle');
@@ -242,11 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedNoteDayLabel.textContent = 'Zaznacz dzień na kalendarzu';
 
         const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+        const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
 
         for (let day = 1; day <= daysInMonth; day++) {
             // Wyświetlanie notatki, jeśli istnieje
             const data = workData[monthKey][day];
             if (data && data.note) {
+                const dateObj = new Date(year, month, day);
+                const dayOfWeekName = dayNamesFull[dateObj.getDay()];
                 const utcNote = Date.UTC(year, month, day);
                 const diffDays = Math.floor((utcToday - utcNote) / (1000 * 60 * 60 * 24));
 
@@ -256,19 +271,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const noteDiv = document.createElement('div');
                 noteDiv.className = 'note-item';
                 
+                let dayTag = `${day} ${monthNames[month]} (${dayOfWeekName})`;
+
                 // Priorytety na podstawie różnicy dni lub przypięcia
                 if (data.notePinned) {
                     noteDiv.classList.add('note-pinned');
                 } else if (diffDays === 0) {
                     noteDiv.classList.add('note-today');
+                    dayTag = `TO DZIŚ - ${dayOfWeekName} (${day} ${monthNames[month]}) ❗`;
                 } else if (diffDays === -1) {
                     noteDiv.classList.add('note-tomorrow');
+                    dayTag = `JUTRO - ${dayOfWeekName} (${day} ${monthNames[month]}) 🔔`;
                 } else if (diffDays === 1) {
                     noteDiv.classList.add('note-yesterday');
+                    dayTag = `WCZORAJ - ${dayOfWeekName} (${day} ${monthNames[month]})`;
                 }
 
                 noteDiv.innerHTML = `
-                    <div class="note-content" style="cursor:pointer;" title="Kliknij, aby edytować"><strong>${day} ${monthNames[month]}:</strong> <span class="note-text-span">${data.note}</span></div>
+                    <div class="note-content" style="cursor:pointer;" title="Kliknij, aby edytować"><strong>${dayTag}:</strong> <span class="note-text-span">${data.note}</span></div>
                     <div class="note-actions">
                         <button class="note-action-btn pin-btn ${data.notePinned ? 'active' : ''}" data-day="${day}">📌</button>
                         <button class="note-action-btn delete-btn" data-day="${day}">✕</button>
@@ -762,18 +782,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
+        const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
+
         const checkDay = (date, isTomorrow) => {
             const year = date.getFullYear();
             const month = date.getMonth();
             const day = date.getDate();
             const monthKey = getMonthKey(year, month);
+            const dayOfWeekName = dayNamesFull[date.getDay()];
             
             if (workData[monthKey] && workData[monthKey][day] && workData[monthKey][day].note) {
                 const noteText = workData[monthKey][day].note;
                 const notifyKey = isTomorrow ? `notify_tomorrow_${year}_${month}_${day}_${noteText}` : `notify_today_${year}_${month}_${day}_${noteText}`;
                 
                 if (!localStorage.getItem(notifyKey)) {
-                    const title = isTomorrow ? "JUTRO 🔔" : "TO DZIŚ ❗";
+                    const title = isTomorrow ? `JUTRO (${dayOfWeekName}) 🔔` : `TO DZIŚ (${dayOfWeekName}) ❗`;
                     
                     if (navigator.serviceWorker && navigator.serviceWorker.ready) {
                         navigator.serviceWorker.ready.then(registration => {
