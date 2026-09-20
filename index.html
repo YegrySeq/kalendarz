@@ -8,23 +8,6 @@
     <meta name="theme-color" content="#6c5ce7">
     <link rel="apple-touch-icon" href="icon.svg">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        window.initOneSignal = function(appId) {
-            if (!appId) return;
-            OneSignalDeferred.push(async function(OneSignal) {
-                await OneSignal.init({
-                    appId: appId,
-                    allowLocalhostAsSecureOrigin: true,
-                });
-            });
-        };
-        const savedAppId = localStorage.getItem('oneSignalAppId');
-        if (savedAppId) {
-            window.initOneSignal(savedAppId);
-        }
-    </script>
 </head>
 <body>
     <div id="main-header" style="display: flex; justify-content: space-between; padding: 10px 15px; align-items: center; background: var(--bg-color);">
@@ -44,8 +27,7 @@
 
         <div style="display: flex; gap: 6px; align-items: center;">
             <button id="install-btn" class="header-btn hidden">Instaluj</button>
-            <button id="push-btn" class="header-btn" style="background: rgba(108, 92, 231, 0.1); border: 1px solid var(--primary-color); color: var(--primary-color); cursor: pointer; padding: 6px 10px; font-size: 15px;" title="Konfiguracja powiadomień Push w tle">🔔</button>
-            <button id="update-btn" class="header-btn" style="background: rgba(108, 92, 231, 0.1); border: 1px solid var(--primary-color); color: var(--primary-color); cursor: pointer; padding: 6px 10px; font-size: 15px;" title="Wymuś aktualizację PWA">🔄</button>
+            <button id="update-btn" class="header-btn" style="background: var(--primary-gradient); color: white; border: none; cursor: pointer; padding: 6px 10px; font-size: 15px; box-shadow: var(--shadow);" title="Wymuś aktualizację PWA">🔄</button>
         </div>
     </div>
     

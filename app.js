@@ -560,32 +560,6 @@ document.addEventListener('DOMContentLoaded', () => {
         installBtn.classList.add('hidden');
     });
 
-    const pushBtn = document.getElementById('push-btn');
-    if (pushBtn) {
-        pushBtn.addEventListener('click', () => {
-            const currentAppId = localStorage.getItem('oneSignalAppId') || '';
-            const newAppId = prompt(
-                'Konfiguracja powiadomień Push w tle (gdy aplikacja jest zamknięta):\n\n' +
-                'Wpisz Twój OneSignal App ID z darmowego konta na onesignal.com:\n' +
-                '(Zostaw puste, aby usunąć)', 
-                currentAppId
-            );
-
-            if (newAppId !== null) {
-                if (newAppId.trim() === '') {
-                    localStorage.removeItem('oneSignalAppId');
-                    alert('Usunięto OneSignal App ID.');
-                } else {
-                    localStorage.setItem('oneSignalAppId', newAppId.trim());
-                    if (window.initOneSignal) {
-                        window.initOneSignal(newAppId.trim());
-                    }
-                    alert('Zapisano OneSignal App ID! Powiadomienia w tle zostały skonfigurowane.');
-                }
-            }
-        });
-    }
-
     const updateBtn = document.getElementById('update-btn');
 
     async function forcePWAUpdate() {
