@@ -1,4 +1,6 @@
-const CACHE_NAME = 'work-calendar-v21';
+importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
+
+const CACHE_NAME = 'work-calendar-v25';
 const ASSETS = [
     './',
     './index.html',
@@ -45,4 +47,34 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// Natywna obsługa zdarzeń Push w tle (dla serwerów WebPush)
+self.addEventListener('push', (event) => {
+    let data = { title: 'Kalendarz Pracy 🔔', body: 'Masz nadchodzące powiadomienie!' };
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (e) {
+            data.body = event.data.text();
+        }
+    }
+
+    const options = {
+        body: data.body,
+        icon: 'icon.svg',
+        badge: 'icon.svg',
+        vibrate: [200, 100, 200]
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, options)
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.openWindow('/')
+    );
 });

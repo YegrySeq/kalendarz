@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof checkAndShowNotifications === 'function') {
             checkAndShowNotifications();
         }
+        if (typeof scheduleAndroidNotificationTriggers === 'function') {
+            scheduleAndroidNotificationTriggers();
+        }
     }
 
     function getMonthKey(year, month) {
@@ -131,10 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (diffDaysLoop === 0) {
                     cell.classList.add('cell-note-today');
-                    cell.innerHTML += `<div class="today-note-badge" title="Notatka na dziś: ${data.note}">❗</div>`;
                 } else if (diffDaysLoop === 1) {
                     cell.classList.add('cell-note-tomorrow');
-                    cell.innerHTML += `<div class="tomorrow-note-badge" title="Notatka na jutro: ${data.note}">🔔</div>`;
+                    cell.innerHTML += `<div class="note-indicator"></div>`;
                 } else {
                     cell.innerHTML += `<div class="note-indicator"></div>`;
                 }
@@ -558,6 +560,32 @@ document.addEventListener('DOMContentLoaded', () => {
         installBtn.classList.add('hidden');
     });
 
+    const pushBtn = document.getElementById('push-btn');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', () => {
+            const currentAppId = localStorage.getItem('oneSignalAppId') || '';
+            const newAppId = prompt(
+                'Konfiguracja powiadomień Push w tle (gdy aplikacja jest zamknięta):\n\n' +
+                'Wpisz Twój OneSignal App ID z darmowego konta na onesignal.com:\n' +
+                '(Zostaw puste, aby usunąć)', 
+                currentAppId
+            );
+
+            if (newAppId !== null) {
+                if (newAppId.trim() === '') {
+                    localStorage.removeItem('oneSignalAppId');
+                    alert('Usunięto OneSignal App ID.');
+                } else {
+                    localStorage.setItem('oneSignalAppId', newAppId.trim());
+                    if (window.initOneSignal) {
+                        window.initOneSignal(newAppId.trim());
+                    }
+                    alert('Zapisano OneSignal App ID! Powiadomienia w tle zostały skonfigurowane.');
+                }
+            }
+        });
+    }
+
     const updateBtn = document.getElementById('update-btn');
 
     async function forcePWAUpdate() {
@@ -765,14 +793,83 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Notification.permission === "default") {
                 Notification.requestPermission().then(() => {
                     checkAndShowNotifications();
+                    scheduleAndroidNotificationTriggers();
                 });
             }
         }, { once: true });
         
         checkAndShowNotifications();
+        scheduleAndroidNotificationTriggers();
         
         // Sprawdzaj co minutę (dla otwartej aplikacji)
         setInterval(checkAndShowNotifications, 60000);
+    }
+
+    function scheduleAndroidNotificationTriggers() {
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        if (!('serviceWorker' in navigator)) return;
+
+        navigator.serviceWorker.ready.then(registration => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            const monthKey = getMonthKey(year, month);
+            const monthData = workData[monthKey] || {};
+
+            const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
+
+            for (const dayStr in monthData) {
+                const day = parseInt(dayStr);
+                const data = monthData[day];
+                if (data && data.note) {
+                    const noteDate = new Date(year, month, day);
+                    const dayOfWeekName = dayNamesFull[noteDate.getDay()];
+                    
+                    // Powiadomienie "TO DZIŚ" rano o 04:00 w dniu notatki
+                    const todayNotifyTime = new Date(year, month, day, 4, 0, 0).getTime();
+                    
+                    // Powiadomienie "JUTRO" wieczorem o 18:00 dzień wcześniej
+                    const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0).getTime();
+
+                    const now = Date.now();
+
+                    // Planowanie lokalne w systemie Android
+                    if (todayNotifyTime > now) {
+                        try {
+                            const options = {
+                                body: data.note,
+                                icon: 'icon.svg',
+                                vibrate: [200, 100, 200],
+                                tag: `note_today_${year}_${month}_${day}`
+                            };
+                            if (typeof TimestampTrigger !== 'undefined') {
+                                options.showTrigger = new TimestampTrigger(todayNotifyTime);
+                            }
+                            registration.showNotification(`TO DZIŚ (${dayOfWeekName}) ❗`, options);
+                        } catch(e) {
+                            console.log('Notification trigger fallback:', e);
+                        }
+                    }
+
+                    if (tomorrowNotifyTime > now) {
+                        try {
+                            const options = {
+                                body: data.note,
+                                icon: 'icon.svg',
+                                vibrate: [200, 100, 200],
+                                tag: `note_tomorrow_${year}_${month}_${day}`
+                            };
+                            if (typeof TimestampTrigger !== 'undefined') {
+                                options.showTrigger = new TimestampTrigger(tomorrowNotifyTime);
+                            }
+                            registration.showNotification(`JUTRO (${dayOfWeekName}) 🔔`, options);
+                        } catch(e) {
+                            console.log('Notification trigger fallback:', e);
+                        }
+                    }
+                }
+            }
+        });
     }
 
     function checkAndShowNotifications() {
