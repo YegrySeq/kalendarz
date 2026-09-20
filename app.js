@@ -782,6 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function scheduleAndroidNotificationTriggers() {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
         if (!('serviceWorker' in navigator)) return;
+        if (typeof TimestampTrigger === 'undefined') return;
 
         navigator.serviceWorker.ready.then(registration => {
             const today = new Date();
@@ -799,47 +800,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     const noteDate = new Date(year, month, day);
                     const dayOfWeekName = dayNamesFull[noteDate.getDay()];
                     
-                    // Powiadomienie "TO DZIŚ" rano o 04:00 w dniu notatki
                     const todayNotifyTime = new Date(year, month, day, 4, 0, 0).getTime();
-                    
-                    // Powiadomienie "JUTRO" wieczorem o 18:00 dzień wcześniej
                     const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0).getTime();
 
                     const now = Date.now();
 
-                    // Planowanie lokalne w systemie Android
                     if (todayNotifyTime > now) {
                         try {
-                            const options = {
+                            registration.showNotification(`TO DZIŚ (${dayOfWeekName}) ❗`, {
                                 body: data.note,
                                 icon: 'icon.svg',
                                 vibrate: [200, 100, 200],
-                                tag: `note_today_${year}_${month}_${day}`
-                            };
-                            if (typeof TimestampTrigger !== 'undefined') {
-                                options.showTrigger = new TimestampTrigger(todayNotifyTime);
-                            }
-                            registration.showNotification(`TO DZIŚ (${dayOfWeekName}) ❗`, options);
-                        } catch(e) {
-                            console.log('Notification trigger fallback:', e);
-                        }
+                                tag: `note_today_${year}_${month}_${day}`,
+                                showTrigger: new TimestampTrigger(todayNotifyTime)
+                            });
+                        } catch(e) {}
                     }
 
                     if (tomorrowNotifyTime > now) {
                         try {
-                            const options = {
+                            registration.showNotification(`JUTRO (${dayOfWeekName}) 🔔`, {
                                 body: data.note,
                                 icon: 'icon.svg',
                                 vibrate: [200, 100, 200],
-                                tag: `note_tomorrow_${year}_${month}_${day}`
-                            };
-                            if (typeof TimestampTrigger !== 'undefined') {
-                                options.showTrigger = new TimestampTrigger(tomorrowNotifyTime);
-                            }
-                            registration.showNotification(`JUTRO (${dayOfWeekName}) 🔔`, options);
-                        } catch(e) {
-                            console.log('Notification trigger fallback:', e);
-                        }
+                                tag: `note_tomorrow_${year}_${month}_${day}`,
+                                showTrigger: new TimestampTrigger(tomorrowNotifyTime)
+                            });
+                        } catch(e) {}
                     }
                 }
             }
@@ -850,49 +837,64 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
         
         const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const day = today.getDate();
+        
+        // Unikalny klucz dla dzisiejszej daty - maksymalnie 1 raz dziennie przy otwarciu!
+        const dailyShownKey = `daily_shown_${year}_${month}_${day}`;
+        if (localStorage.getItem(dailyShownKey)) {
+            return; // Dziś już wyświetlono powiadomienie dziennikowe
+        }
+
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
         const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
 
+        let notificationFired = false;
+
         const checkDay = (date, isTomorrow) => {
-            const year = date.getFullYear();
-            const month = date.getMonth();
-            const day = date.getDate();
-            const monthKey = getMonthKey(year, month);
+            if (notificationFired) return;
+
+            const dYear = date.getFullYear();
+            const dMonth = date.getMonth();
+            const dDay = date.getDate();
+            const monthKey = getMonthKey(dYear, dMonth);
             const dayOfWeekName = dayNamesFull[date.getDay()];
             
-            if (workData[monthKey] && workData[monthKey][day] && workData[monthKey][day].note) {
-                const noteText = workData[monthKey][day].note;
-                const notifyKey = isTomorrow ? `notify_tomorrow_${year}_${month}_${day}_${noteText}` : `notify_today_${year}_${month}_${day}_${noteText}`;
+            if (workData[monthKey] && workData[monthKey][dDay] && workData[monthKey][dDay].note) {
+                const noteText = workData[monthKey][dDay].note;
+                const title = isTomorrow ? `JUTRO (${dayOfWeekName}) 🔔` : `TO DZIŚ (${dayOfWeekName}) ❗`;
                 
-                if (!localStorage.getItem(notifyKey)) {
-                    const title = isTomorrow ? `JUTRO (${dayOfWeekName}) 🔔` : `TO DZIŚ (${dayOfWeekName}) ❗`;
-                    
-                    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                        navigator.serviceWorker.ready.then(registration => {
-                            try {
-                                registration.showNotification(title, {
-                                    body: noteText,
-                                    icon: 'icon.svg',
-                                    vibrate: [200, 100, 200]
-                                }).catch(err => {
-                                    new Notification(title, { body: noteText, icon: 'icon.svg' });
-                                });
-                            } catch(e) {
+                if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+                    navigator.serviceWorker.ready.then(registration => {
+                        try {
+                            registration.showNotification(title, {
+                                body: noteText,
+                                icon: 'icon.svg',
+                                vibrate: [200, 100, 200],
+                                tag: 'daily-calendar-note'
+                            }).catch(err => {
                                 new Notification(title, { body: noteText, icon: 'icon.svg' });
-                            }
-                        });
-                    } else {
-                        new Notification(title, { body: noteText, icon: 'icon.svg' });
-                    }
-                    localStorage.setItem(notifyKey, 'true');
+                            });
+                        } catch(e) {
+                            new Notification(title, { body: noteText, icon: 'icon.svg' });
+                        }
+                    });
+                } else {
+                    new Notification(title, { body: noteText, icon: 'icon.svg' });
                 }
+
+                localStorage.setItem(dailyShownKey, 'true');
+                notificationFired = true;
             }
         };
 
         checkDay(today, false);
-        checkDay(tomorrow, true);
+        if (!notificationFired) {
+            checkDay(tomorrow, true);
+        }
     }
 
     initNotifications();
