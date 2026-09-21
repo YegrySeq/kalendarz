@@ -1,13 +1,14 @@
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME = 'work-calendar-v32';
+const CACHE_NAME = 'work-calendar-v34';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './app.js',
     './manifest.json',
-    './icon.svg'
+    './icon.svg',
+    './OneSignalSDKWorker.js'
 ];
 
 self.addEventListener('install', (e) => {

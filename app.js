@@ -553,21 +553,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const pushBtn = document.getElementById('push-btn');
-    if (pushBtn) {
-        pushBtn.addEventListener('click', () => {
-            if (window.OneSignalDeferred) {
-                window.OneSignalDeferred.push(function(OneSignal) {
-                    if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
-                        OneSignal.Notifications.requestPermission();
-                    } else {
-                        alert('Powiadomienia Push OneSignal są aktywne!');
-                    }
-                });
-            }
-        });
-    }
-
     const updateBtn = document.getElementById('update-btn');
 
     async function forcePWAUpdate() {
