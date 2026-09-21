@@ -812,45 +812,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch(e) {}
             });
         }
+    }
+
     async function scheduleOneSignalPushesForNotes() {
-        const today = new Date();
-        const now = Date.now();
-        const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
+        try {
+            const today = new Date();
+            const now = Date.now();
+            const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
 
-        for (const monthKey in workData) {
-            const parts = monthKey.split('-');
-            if (parts.length !== 2) continue;
-            const year = parseInt(parts[0]);
-            const month = parseInt(parts[1]);
-            const monthData = workData[monthKey] || {};
+            for (const monthKey in workData) {
+                const parts = monthKey.split('-');
+                if (parts.length !== 2) continue;
+                const year = parseInt(parts[0]);
+                const month = parseInt(parts[1]);
+                const monthData = workData[monthKey] || {};
 
-            for (const dayStr in monthData) {
-                const day = parseInt(dayStr);
-                const data = monthData[day];
-                if (data && data.note) {
-                    const noteDate = new Date(year, month, day);
-                    const dayOfWeekName = dayNamesFull[noteDate.getDay()];
-                    
-                    const todayNotifyTime = new Date(year, month, day, 4, 0, 0);
-                    const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0);
+                for (const dayStr in monthData) {
+                    const day = parseInt(dayStr);
+                    const data = monthData[day];
+                    if (data && data.note) {
+                        const noteDate = new Date(year, month, day);
+                        const dayOfWeekName = dayNamesFull[noteDate.getDay()];
+                        
+                        const todayNotifyTime = new Date(year, month, day, 4, 0, 0);
+                        const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0);
 
-                    if (todayNotifyTime.getTime() > now) {
-                        scheduleSingleOneSignalPush(
-                            `TO DZIŚ (${dayOfWeekName}) ❗`,
-                            data.note,
-                            todayNotifyTime
-                        );
-                    }
+                        if (todayNotifyTime.getTime() > now) {
+                            scheduleSingleOneSignalPush(
+                                `TO DZIŚ (${dayOfWeekName}) ❗`,
+                                data.note,
+                                todayNotifyTime
+                            );
+                        }
 
-                    if (tomorrowNotifyTime.getTime() > now) {
-                        scheduleSingleOneSignalPush(
-                            `JUTRO (${dayOfWeekName}) 🔔`,
-                            data.note,
-                            tomorrowNotifyTime
-                        );
+                        if (tomorrowNotifyTime.getTime() > now) {
+                            scheduleSingleOneSignalPush(
+                                `JUTRO (${dayOfWeekName}) 🔔`,
+                                data.note,
+                                tomorrowNotifyTime
+                            );
+                        }
                     }
                 }
             }
+        } catch(err) {
+            console.error("Błąd w scheduleOneSignalPushesForNotes:", err);
         }
     }
 
@@ -880,5 +886,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial render & sync existing notes with OneSignal
     renderCalendar();
-    scheduleOneSignalPushesForNotes();
+    try {
+        scheduleOneSignalPushesForNotes();
+    } catch(e) {
+        console.error("Init OneSignal error:", e);
+    }
 });
