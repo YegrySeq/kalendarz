@@ -57,6 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof syncOneSignalTags === 'function') {
             syncOneSignalTags();
         }
+        if (typeof scheduleOneSignalPushesForNotes === 'function') {
+            scheduleOneSignalPushesForNotes();
+        }
     }
 
     function getMonthKey(year, month) {
@@ -553,6 +556,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const testPushBtn = document.getElementById('test-push-btn');
+    if (testPushBtn) {
+        testPushBtn.addEventListener('click', async () => {
+            let restApiKey = localStorage.getItem('oneSignalRestApiKey');
+            if (!restApiKey) {
+                const userKey = prompt("Wpisz Twój OneSignal REST API Key (znajdziesz go w OneSignal -> Settings -> Keys & IDs -> REST API Key):");
+                if (userKey && userKey.trim()) {
+                    restApiKey = userKey.trim();
+                    localStorage.setItem('oneSignalRestApiKey', restApiKey);
+                } else {
+                    return;
+                }
+            }
+
+            const payload = {
+                app_id: "64e62d9c-2b8f-4eda-b37c-fd5870be38a7",
+                included_segments: ["Subscribed Users"],
+                headings: { "pl": "TEST POWIADOMIENIA PUSH 🔔", "en": "TEST PUSH 🔔" },
+                contents: { "pl": "Działa! Powiadomienia z kalendarza będą przychodzić z serwera w tle.", "en": "Test Push Successful!" }
+            };
+
+            try {
+                const response = await fetch("https://onesignal.com/api/v1/notifications", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json; charset=utf-8",
+                        "Authorization": "Basic " + restApiKey
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.id) {
+                    alert("✅ Wysyłanie pomyślne! Sprawdź powiadomienie na telefonie za chwileczkę.");
+                } else {
+                    alert("⚠️ Odpowiedź z OneSignal: " + (result.errors ? result.errors.join(", ") : JSON.stringify(result)));
+                }
+            } catch(e) {
+                alert("Błąd połączenia: " + e.message);
+            }
+        });
+    }
+
     const updateBtn = document.getElementById('update-btn');
 
     async function forcePWAUpdate() {
@@ -775,6 +820,73 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch(e) {}
             });
+        }
+    async function scheduleOneSignalPushesForNotes() {
+        const restApiKey = localStorage.getItem('oneSignalRestApiKey');
+        if (!restApiKey) return;
+
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const monthKey = getMonthKey(year, month);
+        const monthData = workData[monthKey] || {};
+
+        const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
+
+        for (const dayStr in monthData) {
+            const day = parseInt(dayStr);
+            const data = monthData[day];
+            if (data && data.note) {
+                const noteDate = new Date(year, month, day);
+                const dayOfWeekName = dayNamesFull[noteDate.getDay()];
+                
+                const todayNotifyTime = new Date(year, month, day, 4, 0, 0);
+                const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0);
+
+                const now = Date.now();
+
+                if (todayNotifyTime.getTime() > now) {
+                    scheduleSingleOneSignalPush(
+                        `TO DZIŚ (${dayOfWeekName}) ❗`,
+                        data.note,
+                        todayNotifyTime,
+                        restApiKey
+                    );
+                }
+
+                if (tomorrowNotifyTime.getTime() > now) {
+                    scheduleSingleOneSignalPush(
+                        `JUTRO (${dayOfWeekName}) 🔔`,
+                        data.note,
+                        tomorrowNotifyTime,
+                        restApiKey
+                    );
+                }
+            }
+        }
+    }
+
+    async function scheduleSingleOneSignalPush(title, message, dateObj, restApiKey) {
+        const formattedDate = dateObj.toISOString();
+        const payload = {
+            app_id: "64e62d9c-2b8f-4eda-b37c-fd5870be38a7",
+            included_segments: ["Subscribed Users"],
+            headings: { "pl": title, "en": title },
+            contents: { "pl": message, "en": message },
+            send_after: formattedDate
+        };
+
+        try {
+            await fetch("https://onesignal.com/api/v1/notifications", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Authorization": "Basic " + restApiKey
+                },
+                body: JSON.stringify(payload)
+            });
+        } catch(e) {
+            console.error("Błąd planowania OneSignal Push:", e);
         }
     }
 
