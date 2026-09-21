@@ -1,6 +1,6 @@
 importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
 
-const CACHE_NAME = 'work-calendar-v35';
+const CACHE_NAME = 'work-calendar-v37';
 const ASSETS = [
     './',
     './index.html',

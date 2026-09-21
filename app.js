@@ -556,25 +556,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const ONESIGNAL_REST_API_KEY = "os_v2_app_mttc3hblr5hnvm347vmhbpryu6uxs6gwlp2ey3erp5i25gnqte6u5k2lrjwscrohxo2mou3dofehkhlmddmryxnuphcujaku23dxe7y";
+
     const testPushBtn = document.getElementById('test-push-btn');
     if (testPushBtn) {
         testPushBtn.addEventListener('click', async () => {
-            let restApiKey = localStorage.getItem('oneSignalRestApiKey');
-            if (!restApiKey) {
-                const userKey = prompt("Wpisz Twój OneSignal REST API Key (znajdziesz go w OneSignal -> Settings -> Keys & IDs -> REST API Key):");
-                if (userKey && userKey.trim()) {
-                    restApiKey = userKey.trim();
-                    localStorage.setItem('oneSignalRestApiKey', restApiKey);
-                } else {
-                    return;
-                }
-            }
-
             const payload = {
                 app_id: "64e62d9c-2b8f-4eda-b37c-fd5870be38a7",
                 included_segments: ["Subscribed Users"],
                 headings: { "pl": "TEST POWIADOMIENIA PUSH 🔔", "en": "TEST PUSH 🔔" },
-                contents: { "pl": "Działa! Powiadomienia z kalendarza będą przychodzić z serwera w tle.", "en": "Test Push Successful!" }
+                contents: { "pl": "Działa! Powiadomienia z kalendarza są skonfigurowane i przyjdą z serwera w tle.", "en": "Test Push Successful!" }
             };
 
             try {
@@ -582,13 +573,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json; charset=utf-8",
-                        "Authorization": "Basic " + restApiKey
+                        "Authorization": "Basic " + ONESIGNAL_REST_API_KEY
                     },
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 if (result.id) {
-                    alert("✅ Wysyłanie pomyślne! Sprawdź powiadomienie na telefonie za chwileczkę.");
+                    alert("✅ Wysyłanie pomyślne! Powiadomienie powinno pojawić się na Twoim telefonie za chwilę.");
                 } else {
                     alert("⚠️ Odpowiedź z OneSignal: " + (result.errors ? result.errors.join(", ") : JSON.stringify(result)));
                 }
@@ -822,51 +813,48 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     async function scheduleOneSignalPushesForNotes() {
-        const restApiKey = localStorage.getItem('oneSignalRestApiKey');
-        if (!restApiKey) return;
-
         const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
-        const monthKey = getMonthKey(year, month);
-        const monthData = workData[monthKey] || {};
-
+        const now = Date.now();
         const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
 
-        for (const dayStr in monthData) {
-            const day = parseInt(dayStr);
-            const data = monthData[day];
-            if (data && data.note) {
-                const noteDate = new Date(year, month, day);
-                const dayOfWeekName = dayNamesFull[noteDate.getDay()];
-                
-                const todayNotifyTime = new Date(year, month, day, 4, 0, 0);
-                const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0);
+        for (const monthKey in workData) {
+            const parts = monthKey.split('-');
+            if (parts.length !== 2) continue;
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]);
+            const monthData = workData[monthKey] || {};
 
-                const now = Date.now();
+            for (const dayStr in monthData) {
+                const day = parseInt(dayStr);
+                const data = monthData[day];
+                if (data && data.note) {
+                    const noteDate = new Date(year, month, day);
+                    const dayOfWeekName = dayNamesFull[noteDate.getDay()];
+                    
+                    const todayNotifyTime = new Date(year, month, day, 4, 0, 0);
+                    const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0);
 
-                if (todayNotifyTime.getTime() > now) {
-                    scheduleSingleOneSignalPush(
-                        `TO DZIŚ (${dayOfWeekName}) ❗`,
-                        data.note,
-                        todayNotifyTime,
-                        restApiKey
-                    );
-                }
+                    if (todayNotifyTime.getTime() > now) {
+                        scheduleSingleOneSignalPush(
+                            `TO DZIŚ (${dayOfWeekName}) ❗`,
+                            data.note,
+                            todayNotifyTime
+                        );
+                    }
 
-                if (tomorrowNotifyTime.getTime() > now) {
-                    scheduleSingleOneSignalPush(
-                        `JUTRO (${dayOfWeekName}) 🔔`,
-                        data.note,
-                        tomorrowNotifyTime,
-                        restApiKey
-                    );
+                    if (tomorrowNotifyTime.getTime() > now) {
+                        scheduleSingleOneSignalPush(
+                            `JUTRO (${dayOfWeekName}) 🔔`,
+                            data.note,
+                            tomorrowNotifyTime
+                        );
+                    }
                 }
             }
         }
     }
 
-    async function scheduleSingleOneSignalPush(title, message, dateObj, restApiKey) {
+    async function scheduleSingleOneSignalPush(title, message, dateObj) {
         const formattedDate = dateObj.toISOString();
         const payload = {
             app_id: "64e62d9c-2b8f-4eda-b37c-fd5870be38a7",
@@ -881,7 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json; charset=utf-8",
-                    "Authorization": "Basic " + restApiKey
+                    "Authorization": "Basic " + ONESIGNAL_REST_API_KEY
                 },
                 body: JSON.stringify(payload)
             });
@@ -890,6 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Initial render
+    // Initial render & sync existing notes with OneSignal
     renderCalendar();
+    scheduleOneSignalPushesForNotes();
 });
