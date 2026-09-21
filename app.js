@@ -54,11 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('workCalendarData', JSON.stringify(workData));
         localStorage.setItem('hourlyRate', hourlyRate);
         calculateTotal();
-        if (typeof checkAndShowNotifications === 'function') {
-            checkAndShowNotifications();
-        }
-        if (typeof scheduleAndroidNotificationTriggers === 'function') {
-            scheduleAndroidNotificationTriggers();
+        if (typeof syncOneSignalTags === 'function') {
+            syncOneSignalTags();
         }
     }
 
@@ -556,9 +553,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    window.addEventListener('appinstalled', () => {
-        installBtn.classList.add('hidden');
-    });
+    const pushBtn = document.getElementById('push-btn');
+    if (pushBtn) {
+        pushBtn.addEventListener('click', () => {
+            if (window.OneSignalDeferred) {
+                window.OneSignalDeferred.push(function(OneSignal) {
+                    if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
+                        OneSignal.Notifications.requestPermission();
+                    } else {
+                        alert('Powiadomienia Push OneSignal są aktywne!');
+                    }
+                });
+            }
+        });
+    }
 
     const updateBtn = document.getElementById('update-btn');
 
@@ -759,145 +767,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- POWIADOMIENIA ---
-    function initNotifications() {
-        if (!("Notification" in window)) return;
-        
-        document.body.addEventListener('click', () => {
-            if (Notification.permission === "default") {
-                Notification.requestPermission().then(() => {
-                    checkAndShowNotifications();
-                    scheduleAndroidNotificationTriggers();
-                });
-            }
-        }, { once: true });
-        
-        checkAndShowNotifications();
-        scheduleAndroidNotificationTriggers();
-        
-        // Sprawdzaj co minutę (dla otwartej aplikacji)
-        setInterval(checkAndShowNotifications, 60000);
-    }
-
-    function scheduleAndroidNotificationTriggers() {
-        if (!("Notification" in window) || Notification.permission !== "granted") return;
-        if (!('serviceWorker' in navigator)) return;
-        if (typeof TimestampTrigger === 'undefined') return;
-
-        navigator.serviceWorker.ready.then(registration => {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = today.getMonth();
-            const monthKey = getMonthKey(year, month);
-            const monthData = workData[monthKey] || {};
-
-            const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
-
-            for (const dayStr in monthData) {
-                const day = parseInt(dayStr);
-                const data = monthData[day];
-                if (data && data.note) {
-                    const noteDate = new Date(year, month, day);
-                    const dayOfWeekName = dayNamesFull[noteDate.getDay()];
+    // --- POWIADOMIENIA ONESIGNAL ---
+    function syncOneSignalTags() {
+        if (window.OneSignalDeferred) {
+            window.OneSignalDeferred.push(function(OneSignal) {
+                try {
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = today.getMonth();
+                    const monthKey = getMonthKey(year, month);
+                    const monthData = workData[monthKey] || {};
                     
-                    const todayNotifyTime = new Date(year, month, day, 4, 0, 0).getTime();
-                    const tomorrowNotifyTime = new Date(year, month, day - 1, 18, 0, 0).getTime();
-
-                    const now = Date.now();
-
-                    if (todayNotifyTime > now) {
-                        try {
-                            registration.showNotification(`TO DZIŚ (${dayOfWeekName}) ❗`, {
-                                body: data.note,
-                                icon: 'icon.svg',
-                                vibrate: [200, 100, 200],
-                                tag: `note_today_${year}_${month}_${day}`,
-                                showTrigger: new TimestampTrigger(todayNotifyTime)
-                            });
-                        } catch(e) {}
-                    }
-
-                    if (tomorrowNotifyTime > now) {
-                        try {
-                            registration.showNotification(`JUTRO (${dayOfWeekName}) 🔔`, {
-                                body: data.note,
-                                icon: 'icon.svg',
-                                vibrate: [200, 100, 200],
-                                tag: `note_tomorrow_${year}_${month}_${day}`,
-                                showTrigger: new TimestampTrigger(tomorrowNotifyTime)
-                            });
-                        } catch(e) {}
-                    }
-                }
-            }
-        });
-    }
-
-    function checkAndShowNotifications() {
-        if (!("Notification" in window) || Notification.permission !== "granted") return;
-        
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
-        const day = today.getDate();
-        
-        // Unikalny klucz dla dzisiejszej daty - maksymalnie 1 raz dziennie przy otwarciu!
-        const dailyShownKey = `daily_shown_${year}_${month}_${day}`;
-        if (localStorage.getItem(dailyShownKey)) {
-            return; // Dziś już wyświetlono powiadomienie dziennikowe
-        }
-
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const dayNamesFull = ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"];
-
-        let notificationFired = false;
-
-        const checkDay = (date, isTomorrow) => {
-            if (notificationFired) return;
-
-            const dYear = date.getFullYear();
-            const dMonth = date.getMonth();
-            const dDay = date.getDate();
-            const monthKey = getMonthKey(dYear, dMonth);
-            const dayOfWeekName = dayNamesFull[date.getDay()];
-            
-            if (workData[monthKey] && workData[monthKey][dDay] && workData[monthKey][dDay].note) {
-                const noteText = workData[monthKey][dDay].note;
-                const title = isTomorrow ? `JUTRO (${dayOfWeekName}) 🔔` : `TO DZIŚ (${dayOfWeekName}) ❗`;
-                
-                if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-                    navigator.serviceWorker.ready.then(registration => {
-                        try {
-                            registration.showNotification(title, {
-                                body: noteText,
-                                icon: 'icon.svg',
-                                vibrate: [200, 100, 200],
-                                tag: 'daily-calendar-note'
-                            }).catch(err => {
-                                new Notification(title, { body: noteText, icon: 'icon.svg' });
-                            });
-                        } catch(e) {
-                            new Notification(title, { body: noteText, icon: 'icon.svg' });
+                    let upcomingNotesCount = 0;
+                    for (const day in monthData) {
+                        if (monthData[day] && monthData[day].note) {
+                            upcomingNotesCount++;
                         }
-                    });
-                } else {
-                    new Notification(title, { body: noteText, icon: 'icon.svg' });
-                }
+                    }
 
-                localStorage.setItem(dailyShownKey, 'true');
-                notificationFired = true;
-            }
-        };
-
-        checkDay(today, false);
-        if (!notificationFired) {
-            checkDay(tomorrow, true);
+                    if (OneSignal.User && OneSignal.User.addTag) {
+                        OneSignal.User.addTag("has_notes", upcomingNotesCount > 0 ? "true" : "false");
+                    }
+                } catch(e) {}
+            });
         }
     }
-
-    initNotifications();
 
     // Initial render
     renderCalendar();

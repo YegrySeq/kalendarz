@@ -1,4 +1,6 @@
-const CACHE_NAME = 'work-calendar-v28';
+importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js');
+
+const CACHE_NAME = 'work-calendar-v32';
 const ASSETS = [
     './',
     './index.html',
@@ -47,7 +49,7 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// Natywna obsługa zdarzeń Push w tle (dla serwerów WebPush)
+// Natywna obsługa zdarzeń Push w tle
 self.addEventListener('push', (event) => {
     let data = { title: 'Kalendarz Pracy 🔔', body: 'Masz nadchodzące powiadomienie!' };
     if (event.data) {
